@@ -103,10 +103,11 @@ No hand-rolled or third-party design system (no Material Design) — **shadcn/ui
 ### Phases (commit after each)
 - [ ] **1.1 Structure** — `create-next-app` (TS, Tailwind, App Router); lay out the folder structure from Structure above (`app/`, `lib/anthropic/`, `components/`) as empty/stub files; empty `page.tsx` shell.
 - [ ] **1.2 Design System** — `npx shadcn init`, define the theme (CSS variables in `app/globals.css`) and palette from Design System above; pull in the base `components/ui/*` pieces we'll need (button, badge, textarea, tabs, collapsible).
-- [ ] **1.3 Persona + single tool-use call** — `personas.ts` (one hardcoded persona), `tools.ts` (just `reject_pitch` to start), `lib/anthropic/client.ts`; a non-streaming API route that returns one journalist turn for a hardcoded pitch (test via curl/Postman, no UI yet).
-- [ ] **1.4 Full tool set + structured score** — add `request_data`, `ask_question`, `book_meeting`, `score_pitch`; force `tool_choice`; wire multi-turn message history.
-- [ ] **1.5 Streaming** — convert the API route to `messages.stream()` over SSE/`ReadableStream`; parse text deltas + tool-use blocks as they arrive.
-- [ ] **1.6 UI wiring** — `PitchComposer`, `Transcript`, `ToolActionBadge`, `ScoreGauge` connected end-to-end to the streaming route. This is the MVP checkpoint — a complete, demoable app.
+- [ ] **1.3 CLAUDE.md** — now that real commands/folder layout/theme conventions exist: document stack, `npm run dev`/`build`/`lint` commands, folder structure, the shadcn/Tailwind theming rule (always use semantic tokens like `bg-primary`, never raw colors), and a pointer to `PROJECT_PLAN.md` for the feature roadmap. Guides every phase from here on.
+- [ ] **1.4 Persona + single tool-use call** — `personas.ts` (one hardcoded persona), `tools.ts` (just `reject_pitch` to start), `lib/anthropic/client.ts`; a non-streaming API route that returns one journalist turn for a hardcoded pitch (test via curl/Postman, no UI yet).
+- [ ] **1.5 Full tool set + structured score** — add `request_data`, `ask_question`, `book_meeting`, `score_pitch`; force `tool_choice`; wire multi-turn message history.
+- [ ] **1.6 Streaming** — convert the API route to `messages.stream()` over SSE/`ReadableStream`; parse text deltas + tool-use blocks as they arrive.
+- [ ] **1.7 UI wiring** — `PitchComposer`, `Transcript`, `ToolActionBadge`, `ScoreGauge` connected end-to-end to the streaming route. This is the MVP checkpoint — a complete, demoable app.
 
 ---
 
