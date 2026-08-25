@@ -15,7 +15,7 @@ Open `http://localhost:3000`. Paste each pitch below into the textarea
 and hit **Send Pitch** (or ⌘/Ctrl+Enter). For each one, check:
 
 - The pitch appears immediately as its own bubble
-- A "Marcus is reading..." placeholder pulses, then gets replaced by a badge + reaction text — text should visibly stream in, not pop in all at once
+- A "Yunes is reading..." placeholder pulses, then gets replaced by a badge + reaction text — text should visibly stream in, not pop in all at once
 - Once the action resolves, "scoring..." pulses, then the score bar/verdict/strengths/weaknesses appear
 - The **Send Pitch** button is disabled (says "Reading...") for the whole turn, so you can't submit a second pitch mid-turn
 - The textarea clears after sending
@@ -52,22 +52,25 @@ We have real before/after numbers from three customers, a technical breakdown of
 
 ### UI Test 4 — multi-turn refinement, in the same thread
 
-This is the actual product pitch (a consultant iterating until the pitch lands):
+This is the actual product pitch (a consultant iterating the *same*
+pitch until it lands) — same company both times, the second message is
+a rewrite that fixes exactly what got the first one rejected, not a
+different client.
 
-1. Send **UI Test 1**'s weak pitch. Let it fully resolve (rejected, low score).
-2. In the same session (don't refresh the page — the thread lives in React state), send a refined version as a follow-up:
+1. Send **UI Test 1**'s weak pitch. Let it fully resolve (rejected, low score). Note it never actually names the company — that's part of why it's weak.
+2. In the same session (don't refresh the page — the thread lives in React state), send a revision of that *same* pitch, now with the specifics Yunes said were missing (real metrics, named customers, a credible founder), and on-beat for B2B SaaS so this test is purely about refinement, not a beat mismatch:
    ```
-   Revised pitch: Subject: How Nimbus Health cut ER triage time 28% at 4 hospital systems (case study + data)
+   Revised pitch: Subject: How Vantix AI cut sales-ops busywork 35% at 5 mid-market B2B teams (case study + data)
 
-   We have before/after numbers from four hospital systems, a technical breakdown of the triage model, and the founder is a former Cleveland Clinic ER director willing to go deep on the mechanics. Happy to share the case study data under embargo ahead of a Tuesday launch.
+   We have before/after numbers from five customers, a technical breakdown of how the automation works, and the founder is a former Salesforce product lead willing to go deep on the mechanics. Happy to share the case study data under embargo ahead of a Tuesday launch.
    ```
-3. Confirm both turns stay visible, stacked in the transcript, and the second turn's action/score reacts *in context* — e.g. it may flag that healthcare is outside Marcus's B2B SaaS beat even though the pitch quality improved. Score should move up from turn 1.
+3. Confirm both turns stay visible, stacked in the transcript, and the second turn's action/score reacts *in context of the first* — e.g. it may explicitly acknowledge this is a stronger version of the same pitch rather than treating it as a cold, unrelated one. Score should move up noticeably from turn 1, and the action should move away from `reject_pitch`.
 4. Refresh the page and confirm the transcript resets to empty — there's no persistence yet (by design, Milestone 1 is client-state only), so this is expected, not a bug.
 
 ## Try your own pitches
 
 Paste anything you want — a real draft pitch, something deliberately
-vague, something with fabricated metrics — and see how Marcus Chen (the
+vague, something with fabricated metrics — and see how Yunes Khalifa (the
 only persona so far, `lib/anthropic/personas.ts`) reacts. Follow up in
 the same thread to keep refining, same pattern as UI Test 4.
 

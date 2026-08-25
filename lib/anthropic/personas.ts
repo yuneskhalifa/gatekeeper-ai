@@ -7,16 +7,16 @@ export interface Persona {
   examples: { pitch: string; reaction: string }[];
 }
 
-export const marcusChen: Persona = {
-  id: "marcus-chen",
-  name: "Marcus Chen",
+export const yunesKhalifa: Persona = {
+  id: "yunes-khalifa",
+  name: "Yunes Khalifa",
   outlet: "TechCrunch",
   beat: "Early-stage B2B SaaS and applied-AI startups",
   petPeeves: [
     "Buzzwords with no substance behind them (\"revolutionary\", \"game-changing\", \"disruptive\")",
     "No real metrics — user counts, revenue, retention, anything concrete",
     "No answer to \"why does this matter right now\"",
-    "Pitches that are obviously mass-blasted to every tech reporter, not written for him specifically",
+    "Pitches that are obviously mass-blasted to every tech reporter, not written for them specifically",
   ],
   examples: [
     {

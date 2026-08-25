@@ -9,31 +9,46 @@ export function ScoreGauge({
   strengths: string[];
   weaknesses: string[];
 }) {
+  const clamped = Math.max(0, Math.min(100, score));
+
   return (
-    <div className="flex flex-col gap-2 border-t border-border pt-2">
-      <div className="flex items-center gap-2">
-        <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary transition-all"
-            style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
-          />
-        </div>
-        <span className="text-sm font-medium tabular-nums">{score}/100</span>
+    <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
+      <div className="flex items-baseline justify-between font-mono">
+        <span className="text-[10px] tracking-widest text-muted-foreground uppercase">
+          Viability
+        </span>
+        <span className="text-sm font-semibold tabular-nums text-foreground">
+          {clamped}
+          <span className="text-muted-foreground">/100</span>
+        </span>
       </div>
-      <p className="text-xs text-muted-foreground">{verdict}</p>
+      <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full bg-primary transition-all duration-500"
+          style={{ width: `${clamped}%` }}
+        />
+      </div>
+      <p className="text-xs text-muted-foreground italic">{verdict}</p>
+
       {(strengths.length > 0 || weaknesses.length > 0) && (
-        <div className="grid grid-cols-2 gap-3 text-xs">
+        <div className="grid grid-cols-2 gap-3 pt-1 font-mono text-[11px] leading-relaxed">
           {strengths.length > 0 && (
-            <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+            <ul className="space-y-1">
               {strengths.map((s, i) => (
-                <li key={i}>{s}</li>
+                <li key={i} className="flex gap-1.5 text-muted-foreground">
+                  <span className="text-primary">+</span>
+                  <span>{s}</span>
+                </li>
               ))}
             </ul>
           )}
           {weaknesses.length > 0 && (
-            <ul className="list-disc space-y-1 pl-4 text-muted-foreground">
+            <ul className="space-y-1">
               {weaknesses.map((w, i) => (
-                <li key={i}>{w}</li>
+                <li key={i} className="flex gap-1.5 text-muted-foreground">
+                  <span className="text-destructive">−</span>
+                  <span>{w}</span>
+                </li>
               ))}
             </ul>
           )}

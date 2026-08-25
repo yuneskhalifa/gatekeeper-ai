@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import type Anthropic from "@anthropic-ai/sdk";
-import { marcusChen } from "@/lib/anthropic/personas";
+import { yunesKhalifa } from "@/lib/anthropic/personas";
 import { PitchComposer } from "@/components/PitchComposer";
 import { Transcript, type Turn } from "@/components/Transcript";
+import { AboutPanel } from "@/components/AboutPanel";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 type SimulateEvent =
   | { type: "action_start" }
@@ -26,6 +28,14 @@ type SimulateEvent =
 
 function emptyTurn(pitch: string): Turn {
   return { pitch, actionRaw: "", scoreRaw: "", status: "action" };
+}
+
+function initials(name: string): string {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase();
 }
 
 export function Simulator() {
@@ -126,15 +136,46 @@ export function Simulator() {
   }
 
   return (
-    <div className="mx-auto flex h-screen w-full max-w-2xl flex-col gap-4 p-6">
-      <header className="border-b border-border pb-4">
-        <h1 className="text-lg font-semibold">Gatekeeper AI</h1>
-        <p className="text-sm text-muted-foreground">
-          Pitching {marcusChen.name} · {marcusChen.outlet} · {marcusChen.beat}
-        </p>
-      </header>
-      <Transcript turns={turns} />
-      <PitchComposer disabled={pending} onSubmit={sendPitch} />
+    <div className="flex h-dvh bg-background">
+      <AboutPanel />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="sticky top-0 z-10 border-b border-border/60 bg-background/85 backdrop-blur">
+          <div className="mx-auto flex w-full max-w-4xl items-center gap-3 px-6 py-4">
+            <Avatar size="lg" className="border border-primary/40">
+              <AvatarFallback className="bg-primary/15 font-mono text-xs font-semibold text-primary">
+                {initials(yunesKhalifa.name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="font-heading text-lg font-semibold leading-tight text-foreground">
+                {yunesKhalifa.name}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">
+                Journalist · {yunesKhalifa.outlet} · {yunesKhalifa.beat}
+              </p>
+            </div>
+          </div>
+        </header>
+
+        <div className="flex-1 overflow-y-auto">
+          <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-8">
+            <Transcript turns={turns} />
+          </div>
+        </div>
+
+        <footer className="sticky bottom-0">
+          <div
+            aria-hidden
+            className="h-8 bg-gradient-to-t from-background to-transparent"
+          />
+          <div className="bg-background pb-6">
+            <div className="mx-auto w-full max-w-4xl px-6">
+              <PitchComposer disabled={pending} onSubmit={sendPitch} />
+            </div>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 }

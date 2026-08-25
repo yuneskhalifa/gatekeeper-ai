@@ -1,6 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { anthropic, MODEL } from "@/lib/anthropic/client";
-import { buildSystemPrompt, marcusChen } from "@/lib/anthropic/personas";
+import { buildSystemPrompt, yunesKhalifa } from "@/lib/anthropic/personas";
 import { actionTools, scorePitchTool } from "@/lib/anthropic/tools";
 
 export const runtime = "nodejs";
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   const system = [
     {
       type: "text" as const,
-      text: buildSystemPrompt(marcusChen),
+      text: buildSystemPrompt(yunesKhalifa),
       cache_control: { type: "ephemeral" as const },
     },
   ];
