@@ -100,6 +100,14 @@ No hand-rolled or third-party design system (no Material Design) — **shadcn/ui
 - Confirm streaming renders incrementally (not all-at-once) in the browser.
 - Confirm the API route handles multi-turn: prior turns are replayed as message history, not just the latest.
 
+### Phases (commit after each)
+- [ ] **1.1 Structure** — `create-next-app` (TS, Tailwind, App Router); lay out the folder structure from Structure above (`app/`, `lib/anthropic/`, `components/`) as empty/stub files; empty `page.tsx` shell.
+- [ ] **1.2 Design System** — `npx shadcn init`, define the theme (CSS variables in `app/globals.css`) and palette from Design System above; pull in the base `components/ui/*` pieces we'll need (button, badge, textarea, tabs, collapsible).
+- [ ] **1.3 Persona + single tool-use call** — `personas.ts` (one hardcoded persona), `tools.ts` (just `reject_pitch` to start), `lib/anthropic/client.ts`; a non-streaming API route that returns one journalist turn for a hardcoded pitch (test via curl/Postman, no UI yet).
+- [ ] **1.4 Full tool set + structured score** — add `request_data`, `ask_question`, `book_meeting`, `score_pitch`; force `tool_choice`; wire multi-turn message history.
+- [ ] **1.5 Streaming** — convert the API route to `messages.stream()` over SSE/`ReadableStream`; parse text deltas + tool-use blocks as they arrive.
+- [ ] **1.6 UI wiring** — `PitchComposer`, `Transcript`, `ToolActionBadge`, `ScoreGauge` connected end-to-end to the streaming route. This is the MVP checkpoint — a complete, demoable app.
+
 ---
 
 ## Milestone 2 — Claude Feature Depth (stretch, high value, low risk)
@@ -114,6 +122,11 @@ Layers onto Milestone 1 without changing its shape.
 - Confirm cache-read tokens appear on the *second and later* turns of a thread (first turn is always a cache write).
 - Confirm thinking content is present and renders only when `thinking` is enabled.
 - Upload a sample PDF and image; confirm the journalist's response references their content.
+
+### Phases (commit after each)
+- [ ] **2.1 Prompt caching badge** — mark system prompt/persona with `cache_control`; read `cache_creation_input_tokens`/`cache_read_input_tokens` from the response; small badge in `Transcript.tsx`.
+- [ ] **2.2 Extended thinking** — enable `thinking`; render as collapsible "Editor's Private Notes" panel.
+- [ ] **2.3 Image/PDF attachments** — attachment control in `PitchComposer`; base64 content blocks sent alongside text; journalist reacts to attached files.
 
 ---
 
@@ -138,6 +151,11 @@ lib/rag/
 - Query the BM25 index directly (unit-level script) for a known pitch topic and confirm relevant journalist/playbook chunks rank highly.
 - Confirm a critique response includes at least one citation back to a specific `data/` document during manual testing.
 
+### Phases (commit after each)
+- [ ] **3.1 Corpora + chunking** — write `data/journalists/*.md` and `data/playbook/*.md`; implement `chunk.ts`.
+- [ ] **3.2 BM25 indices + multi-index retrieval** — `bm25.ts`, `retrieve.ts`; inject retrieved `<context>` into each turn (verify retrieval standalone before wiring into the API route).
+- [ ] **3.3 Citations** — enable `citations` on injected document blocks; render footnote-style references in `Transcript.tsx`.
+
 ---
 
 ## Milestone 4 — Agents & Workflows (stretch)
@@ -153,6 +171,11 @@ Three additions, each mapping to a distinct course concept — call this out exp
 - Confirm routing picks a sensible persona for an obviously funding-related vs. obviously product-launch pitch.
 - Walk the Coach Mode chain end-to-end once manually.
 
+### Phases (commit after each)
+- [ ] **4.1 Routing workflow** — `lib/agents/route.ts` classifier call; "Auto-pick journalist" option in the UI.
+- [ ] **4.2 Parallelization workflow (Gauntlet Mode)** — `app/api/gauntlet/route.ts` firing 3 personas concurrently; side-by-side results UI.
+- [ ] **4.3 Chaining workflow (Coach Mode)** — critique → rewrite-suggestion chain; consultant edit/accept step; resubmit.
+
 ---
 
 ## Milestone 5 — Evals / Model-Graded Testing + Export (stretch, do last)
@@ -164,22 +187,13 @@ Three additions, each mapping to a distinct course concept — call this out exp
 - `npm run evals` runs standalone (no UI needed) and prints a scored table for all fixed test pitches.
 - Spot-check one eval grade manually against the actual transcript to confirm the grader's judgment is sane.
 
+### Phases (commit after each)
+- [ ] **5.1 Eval harness** — `scripts/evals/run.ts`, fixed test pitches, grader rubric call, printed pass/fail table.
+- [ ] **5.2 Export Session Report** (only if time remains) — Files API / code execution recap export.
+- [ ] **5.3 README** — setup steps, architecture + feature map, demo notes for the video.
+
 ---
 
-## Suggested Build Order & Commit Cadence
+## Commit Cadence
 
-Matches the job's "trunk-based, small commits, main always releasable" ethos — treat each milestone as several small, working commits, not one giant one:
-1. Scaffold Next.js + TS + Tailwind, empty simulator shell.
-2. Persona + system prompt + single non-streaming tool-use call, hardcoded persona, one action tool.
-3. Add `score_pitch`, remaining action tools, multi-turn history.
-4. Streaming.
-5. Prompt caching badge.
-6. Extended thinking panel.
-7. Image/PDF attachments.
-8. RAG corpora + BM25 + retrieval + injection.
-9. Citations.
-10. Routing + Gauntlet + Coach Mode.
-11. Eval harness.
-12. README with setup, architecture diagram of the feature map above, and demo notes for the video.
-
-Milestone 1 alone (steps 1–4, roughly) is a legitimate stopping point if time runs short — it is a complete, demoable product on its own.
+Matches the job's "trunk-based, small commits, main always releasable" ethos: one commit per checked-off phase above (`1.1`, `1.2`, ... `5.3`), each left in a working state — never a giant single commit per milestone. Milestone 1 (phases 1.1–1.5) is a legitimate stopping point if time runs short; everything from Milestone 2 onward is additive stretch on top of a working app.
