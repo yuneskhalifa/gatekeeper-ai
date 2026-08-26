@@ -156,7 +156,7 @@ components/PitchEmail.tsx           # editable card: subject, body, before/after
 ### Phases (commit after each)
 - [x] **2.1 compose_pitch_email tool + route** — `lib/anthropic/compose.ts` (schema + consultant system prompt with the grounding rules), `app/api/compile-email/route.ts` forcing the single tool call; test via curl against a hand-written sample thread, no UI yet.
 - [x] **2.2 PitchEmail card + trigger** — `components/PitchEmail.tsx`; "Compile the send-ready pitch" button on `book_meeting` turns in `Transcript.tsx`; wire to the route; editable subject/body, before/after diff, pre-send checklist, copy button + `mailto:` link.
-- [ ] **2.3 Polish** — one or two of the creative extensions above (subject-line options and/or "run it back"), plus the "What the simulation taught us" panel. Update CLAUDE.md structure section and README/TESTING notes.
+- [x] **2.3 Polish** — "Run it back past the journalist" (a one-click cold read of the compiled email through `/api/simulate`, verdict + score shown inline on the card) and the always-visible "What the simulation changed" panel (promoted out of the Before/After tab). `TESTING.md` gains Tests 6–7; CLAUDE.md structure already updated in 2.1.
 
 ---
 

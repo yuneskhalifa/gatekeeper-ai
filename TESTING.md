@@ -1,8 +1,11 @@
-# Testing — Milestone 1
+# Testing
 
-Five test cases covering the full app as of Phase 1.7: persona/tool
-behavior across all four actions, structured scoring, streaming,
-multi-turn memory, and composer/UI mechanics.
+Milestone 1 (Tests 1–5): persona/tool behavior across all four
+actions, structured scoring, streaming, multi-turn memory, and
+composer/UI mechanics.
+
+Milestone 2 (Tests 6–7): compiling a passed pitch into a send-ready
+outreach email, and running that email back past the journalist.
 
 ## Prerequisites
 
@@ -93,3 +96,33 @@ Covers: conversation memory across turns, the composer's disabled/clearing/keybo
    ```
    Verified 3/3 runs: this closes the loop as `book_meeting` with a score in the mid-80s and real proposed meeting times in the reaction text — confirming the thread genuinely accumulates credibility across turns rather than resetting each time.
 6. Send an empty/whitespace-only message (or just hit send with nothing typed) — confirm the Send button stays disabled and nothing gets submitted.
+
+---
+
+## Test 6 — Compile a passed pitch into a send-ready email
+
+Covers: the `book_meeting` trigger, `/api/compile-email`, `compose_pitch_email` structured output, the `PitchEmail` card, grounding + merge-field discipline.
+
+1. Run a pitch through to **Meeting Booked** — fastest path is Test 4's Acme Robotics pitch, or the full Test 5 refinement flow if you want a multi-turn thread.
+2. Under that turn a gold callout appears: "Your pitch cleared the gatekeeper." Click **Compile**.
+3. A pulsing "Compiling the send-ready pitch..." shows, then the **Send-Ready Pitch** card renders. Confirm:
+   - **Subject** is specific to the story, not "Story idea" / "Quick question".
+   - **Body** is built only from facts in the thread. Anything it can't know — the consultant's name, contact details, exact availability, embargo date — appears as a highlighted `[[merge field]]`, never invented. The "N merge fields to fill in" counter matches what's visible.
+   - The CTA proposes the consultant's availability as a merge field — it does **not** quote the times Yunes "offered" in the simulation.
+   - **What the simulation changed** (top panel) lists concrete edits, each tied to a journalist turn (e.g. "Added the 40% figure — journalist ran request_data on turn 2"). On a multi-turn thread every `request_data` / `ask_question` turn should be represented.
+   - **Attach before sending** and **Pre-send checklist** are populated; clicking an item strikes it through.
+4. Edit the subject and body. Click **Copy email**, paste into a scratch buffer — confirm it's the *edited* text with a `Subject:` line. Click **Open in mail client** — confirm the draft opens pre-filled with the edited subject/body.
+5. Open the **Before / After** tab — confirm the original pasted pitch shows on the left, the compiled email (with merge fields highlighted) on the right, and **Proof points carried in** lists the concrete facts.
+6. Confirm the Compile callout only appears on a `book_meeting` turn, and only on the most recent turn — send another pitch after booking and the old callout is gone.
+
+---
+
+## Test 7 — Run the email back past the journalist
+
+Covers: the "Run it back" button, reusing `/api/simulate` for a cold read of the compiled email, the inline verdict panel.
+
+1. From the card in Test 6, click **Run it back past Yunes** in the button row.
+2. Confirm the button switches to "Reading..." and a **"Yunes's read on this email"** panel appears below, showing a pulsing "Yunes is reading it back...".
+3. When it resolves, confirm the panel shows a verdict stamp (usually **Question Asked** or **Meeting Booked** for a strong compiled email), the journalist's reaction text, and a compact viability bar with a score.
+4. Sanity-check the reaction is about *this email as a cold pitch* (e.g. asking for differentiation, revenue, technical approach) — a genuinely useful last check before sending, not a restatement of the earlier thread.
+5. Leaving `[[merge fields]]` unfilled is fine here — Yunes may or may not flag them; the point is the email standing on its own. If the run errors, confirm a red error line shows and the button returns to its normal label so it can be retried.
