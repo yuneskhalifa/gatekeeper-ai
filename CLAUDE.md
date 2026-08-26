@@ -24,26 +24,19 @@ client-side only, this is a demo app, not Pressella itself.
 - `npm run build` — production build (also type-checks)
 - `npx tsc --noEmit` — type-check only
 - `npm run lint` — ESLint
-- `npm run evals` — model-graded eval harness (added in Milestone 5, `scripts/evals/`)
 
 ## Structure
 
 ```
 app/
-  page.tsx                 # simulator UI
-  api/simulate/route.ts    # POST — streams a journalist turn
-  api/gauntlet/route.ts    # POST — parallel multi-persona "Gauntlet Mode" (Milestone 4)
+  page.tsx                    # simulator UI
+  api/simulate/route.ts       # POST — streams a journalist turn
+  api/compile-email/route.ts  # POST — compiles a passed pitch into a send-ready email (Milestone 2)
 lib/
-  anthropic/                # SDK client, persona system prompts, tool schemas
-  rag/                       # BM25 chunking/indexing/retrieval (Milestone 3)
-  agents/                    # routing/chaining workflow calls (Milestone 4)
+  anthropic/                  # SDK client, persona system prompts, tool schemas
 components/
-  ui/                        # shadcn/ui primitives — owned source, not a dependency
-  *.tsx                      # app-specific components (Simulator, Transcript, ...)
-data/
-  journalists/*.md          # persona corpus (Milestone 3)
-  playbook/*.md              # PR best-practice corpus (Milestone 3)
-scripts/evals/                # model-graded eval harness (Milestone 5)
+  ui/                         # shadcn/ui primitives — owned source, not a dependency
+  *.tsx                       # app-specific components (Simulator, Transcript, ...)
 ```
 
 ## Design system
@@ -73,5 +66,5 @@ default (`dark` class on `<html>` in `app/layout.tsx`), no toggle.
   in `PROJECT_PLAN.md`. **The user makes the commits, not Claude Code**
   — implement and verify a phase, then hand it back rather than
   running `git commit` yourself.
-- Anthropic API calls live in `lib/anthropic/` and `lib/agents/` only —
-  don't call the SDK directly from components or route handlers.
+- Anthropic API calls live in `lib/anthropic/` only — don't call the
+  SDK directly from components or route handlers.

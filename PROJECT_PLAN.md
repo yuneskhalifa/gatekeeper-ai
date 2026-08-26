@@ -6,11 +6,7 @@ This is the take-home for the Pathos Communications role (`JOB_DESCRIPTION.md`).
 
 The repo is already named `gatekeeper-ai`, which fits the product concept directly (an AI gatekeeper standing between the PR consultant and the journalist), so the plan adopts that as the product name.
 
-The user also wants this build to deliberately exercise the specific Claude API course modules they just completed — system prompts, streaming, prompt evaluation / model-based grading, prompt engineering technique, tool use, RAG, Claude features (extended thinking, image/PDF support, citations, prompt caching), and agents/workflows (routing, parallelization, chaining) — so the video can speak to real, working use of each. Given "keep it small and finished, an evening or two," the plan is split into a lean, fully-working **Milestone 1 (MVP)** and clearly-scoped **stretch milestones** that layer in the rest of the course topics without putting the finished/demoable state at risk.
-
-Decisions already made with the user:
-- **RAG**: two lexical **BM25** indices (no external embeddings provider/API key needed) — a Journalist Corpus index and a PR Playbook index. Satisfies "text chunking," "BM25 lexical search," and "multi-index RAG pipeline" from the course without adding a Voyage AI dependency.
-- **Scope**: Milestone 1 must be a complete, demoable app on its own. Everything past it is explicitly optional stretch, built only if time allows, but fully speced now so it's a straight shot to implement.
+**Scope decision:** keep this small and finished. The build is one polished thing — the interactive journalist simulator (Milestone 1) — plus one feature that turns a passing pitch into the thing you actually send: once the simulated journalist would book the meeting, the app compiles the refined pitch into a send-ready outreach email for the real journalist (Milestone 2). Everything else (RAG, multi-persona gauntlet, eval harness, routing/chaining workflows) was considered and deliberately cut to keep the app simple and the demo tight.
 
 Stack: **TypeScript + Next.js (App Router)**, Anthropic TypeScript SDK, Tailwind for styling, no database (in-memory/session state only — this is a demo, not Pressella itself).
 
@@ -27,6 +23,8 @@ Stack: **TypeScript + Next.js (App Router)**, Anthropic TypeScript SDK, Tailwind
 
 Every turn also emits a **Pitch Viability Score (0–100)** via structured output. The consultant edits the pitch and resubmits in the same thread until the journalist books the meeting (or gives up).
 
+**When the simulated journalist would book the meeting**, the pitch has passed the gauntlet. Nothing has been sent yet — the whole session was a rehearsal. The app then compiles the *final refined pitch* — hardened by every edit the simulation forced out of the consultant — into a polished, ready-to-send outreach email for the **real** journalist, alongside a human-review checklist to run before hitting send.
+
 ## Feature Map — Course Topic → Product Feature
 
 | Course topic | Where it's used |
@@ -34,22 +32,14 @@ Every turn also emits a **Pitch Viability Score (0–100)** via structured outpu
 | System prompts (persona) | Deep journalist persona: outlet, beat, seniority, pet peeves, tone — drives every response |
 | Prompt engineering (clear/direct, specific, XML tags, examples) | Persona prompt is XML-structured (`<persona>`, `<beat>`, `<pet_peeves>`, `<rules>`); few-shot examples of real rejections/acceptances included |
 | Tool use | `reject_pitch`, `request_data`, `ask_question`, `book_meeting` — forced single discrete action per turn |
-| Structured outputs | `score_pitch` tool call returns `{score, strengths[], weaknesses[], verdict}` — the Viability Score |
+| Structured outputs | `score_pitch` returns `{score, strengths[], weaknesses[], verdict}` (the Viability Score); `compose_pitch_email` returns the structured send-ready draft |
 | Response streaming | Journalist's critique streams token-by-token in the transcript UI |
-| Prompt caching | System prompt + persona + (later) RAG context marked `cache_control`; UI shows a "cache hit" badge with cached-token counts across the multi-turn thread |
-| Prompt evaluation / model-based grading | Dev-only eval harness (`scripts/evals`): fixed test pitches run through the journalist agent, graded by a separate Claude "grader" call for persona-consistency and realism |
-| Extended thinking | Journalist's private reasoning captured as "Editor's Private Notes," collapsible in the UI — meta and demoable |
-| Image / PDF support | Consultant can attach a press kit PDF or product screenshot; journalist reacts to it directly |
-| Citations | Once RAG is wired, the journalist's critique cites exact snippets from the Journalist Corpus / PR Playbook it's grounded on |
-| RAG (chunking, BM25, multi-index) | Two BM25 indices — Journalist Corpus (grounds voice, enables citations) and PR Playbook (grounds "what makes pitches work" advice) |
-| Agents & workflows — routing | Auto-classify the pitch (product launch / funding / exec move / etc.) and route to the best-fit journalist persona |
-| Agents & workflows — parallelization | "Gauntlet Mode": same pitch sent to 3 personas concurrently, results aggregated side-by-side |
-| Agents & workflows — chaining | "Coach Mode": critique → suggested rewrite → user edits → resubmit, as an explicit multi-step chain distinct from the interactive agent loop |
-| Code execution / Files API | Stretch: "Export Session Report" — generates a shareable PDF/markdown recap of the pitch-refinement thread |
+| Prompt caching | System prompt + persona marked `cache_control`; reused across the multi-turn thread and the email-compile call |
+| Chaining / perspective switch | The email-compile step is a second, deterministic call that consumes the finished simulator thread and writes *as the consultant*, folding in every fact the simulation proved the pitch needed |
 
 ---
 
-## Milestone 1 — MVP (must finish; the demoable app)
+## Milestone 1 — MVP (DONE — the demoable app)
 
 **Goal:** a working single-page simulator: pick a persona, paste client news + pitch, get a streamed, tool-driven journalist reaction with a live viability score, refine, repeat.
 
@@ -92,7 +82,7 @@ No hand-rolled or third-party design system (no Material Design) — **shadcn/ui
   </persona>
   <examples>...2-3 few-shot rejection/acceptance examples...</examples>
   ```
-- Mark the system prompt block with `cache_control: {type: "ephemeral"}` from the start — this is free to add now and sets up the Milestone 2 caching demo.
+- Mark the system prompt block with `cache_control: {type: "ephemeral"}`.
 - Conversation state kept client-side (React state) and replayed each turn — no DB needed for a single-session demo.
 
 ### Verification
@@ -101,100 +91,75 @@ No hand-rolled or third-party design system (no Material Design) — **shadcn/ui
 - Confirm the API route handles multi-turn: prior turns are replayed as message history, not just the latest.
 
 ### Phases (commit after each)
-- [ ] **1.1 Structure** — `create-next-app` (TS, Tailwind, App Router); lay out the folder structure from Structure above (`app/`, `lib/anthropic/`, `components/`) as empty/stub files; empty `page.tsx` shell.
-- [ ] **1.2 Design System** — `npx shadcn init`, define the theme (CSS variables in `app/globals.css`) and palette from Design System above; pull in the base `components/ui/*` pieces we'll need (button, badge, textarea, tabs, collapsible).
-- [ ] **1.3 CLAUDE.md** — now that real commands/folder layout/theme conventions exist: document stack, `npm run dev`/`build`/`lint` commands, folder structure, the shadcn/Tailwind theming rule (always use semantic tokens like `bg-primary`, never raw colors), and a pointer to `PROJECT_PLAN.md` for the feature roadmap. Guides every phase from here on.
-- [ ] **1.4 Persona + single tool-use call** — `personas.ts` (one hardcoded persona), `tools.ts` (just `reject_pitch` to start), `lib/anthropic/client.ts`; a non-streaming API route that returns one journalist turn for a hardcoded pitch (test via curl/Postman, no UI yet).
-- [ ] **1.5 Full tool set + structured score** — add `request_data`, `ask_question`, `book_meeting`, `score_pitch`; force `tool_choice`; wire multi-turn message history.
-- [ ] **1.6 Streaming** — convert the API route to `messages.stream()` over SSE/`ReadableStream`; parse text deltas + tool-use blocks as they arrive.
-- [ ] **1.7 UI wiring** — `PitchComposer`, `Transcript`, `ToolActionBadge`, `ScoreGauge` connected end-to-end to the streaming route. This is the MVP checkpoint — a complete, demoable app.
+- [x] **1.1 Structure** — `create-next-app` (TS, Tailwind, App Router); lay out the folder structure from Structure above (`app/`, `lib/anthropic/`, `components/`) as empty/stub files; empty `page.tsx` shell.
+- [x] **1.2 Design System** — `npx shadcn init`, define the theme (CSS variables in `app/globals.css`) and palette from Design System above; pull in the base `components/ui/*` pieces we'll need (button, badge, textarea, tabs, collapsible).
+- [x] **1.3 CLAUDE.md** — now that real commands/folder layout/theme conventions exist: document stack, `npm run dev`/`build`/`lint` commands, folder structure, the shadcn/Tailwind theming rule (always use semantic tokens like `bg-primary`, never raw colors), and a pointer to `PROJECT_PLAN.md` for the feature roadmap. Guides every phase from here on.
+- [x] **1.4 Persona + single tool-use call** — `personas.ts` (one hardcoded persona), `tools.ts` (just `reject_pitch` to start), `lib/anthropic/client.ts`; a non-streaming API route that returns one journalist turn for a hardcoded pitch (test via curl/Postman, no UI yet).
+- [x] **1.5 Full tool set + structured score** — add `request_data`, `ask_question`, `book_meeting`, `score_pitch`; force `tool_choice`; wire multi-turn message history.
+- [x] **1.6 Streaming** — convert the API route to `messages.stream()` over SSE/`ReadableStream`; parse text deltas + tool-use blocks as they arrive.
+- [x] **1.7 UI wiring** — `PitchComposer`, `Transcript`, `ToolActionBadge`, `ScoreGauge` connected end-to-end to the streaming route. This is the MVP checkpoint — a complete, demoable app.
 
 ---
 
-## Milestone 2 — Claude Feature Depth (stretch, high value, low risk)
+## Milestone 2 — Send-Ready Pitch Email
 
-Layers onto Milestone 1 without changing its shape.
+Layers onto Milestone 1 without changing its shape. When a turn's action is `book_meeting`, the pitch has cleared the gatekeeper. The transcript then shows a **"Compile the send-ready pitch"** button under that turn. Clicking it calls a new endpoint that rewrites the pitch as the actual cold-outreach email the consultant will send to the real journalist — rendered as an editable card with a before/after diff, a pre-send checklist, copy-to-clipboard, and a `mailto:` link.
 
-1. **Prompt caching, made visible**: read `cache_creation_input_tokens` / `cache_read_input_tokens` off each response, show a small badge ("💾 1,240 cached tokens — saved ~X ms") in the transcript. Directly demoable in the video.
-2. **Extended thinking**: enable `thinking` on the persona call; render the thinking block behind a collapsible "🧠 Editor's Private Notes" toggle in `Transcript.tsx`. Good demo of a Claude feature that's otherwise invisible.
-3. **Image / PDF support**: add an attachment control in `PitchComposer.tsx`; send as base64 image/PDF content blocks alongside the text. Journalist can react to a press kit or screenshot ("this UI screenshot doesn't back up your claim").
+### Why this is the right last feature
 
-### Verification
-- Confirm cache-read tokens appear on the *second and later* turns of a thread (first turn is always a cache write).
-- Confirm thinking content is present and renders only when `thinking` is enabled.
-- Upload a sample PDF and image; confirm the journalist's response references their content.
+The app's premise is *stress-test the pitch before a human ever sends it*. The artifact of that process is the pitch itself — rewritten, tightened, and armed with the exact proof points the simulation forced out. `book_meeting` is just the unlock condition: "the gatekeeper would take this meeting, so this is ready to go out." Nothing in the session was ever sent; this is the first thing that leaves the building.
 
-### Phases (commit after each)
-- [ ] **2.1 Prompt caching badge** — mark system prompt/persona with `cache_control`; read `cache_creation_input_tokens`/`cache_read_input_tokens` from the response; small badge in `Transcript.tsx`.
-- [ ] **2.2 Extended thinking** — enable `thinking`; render as collapsible "Editor's Private Notes" panel.
-- [ ] **2.3 Image/PDF attachments** — attachment control in `PitchComposer`; base64 content blocks sent alongside text; journalist reacts to attached files.
+It's also the best place to show the AI being *directed well and checked*: the compiled email is only good if every edit traces back to something the simulation surfaced — the metric added after a `request_data` turn, the "why now" paragraph added after an `ask_question` turn, the buzzword stripped after a `reject_pitch`. And it never sends anything: it hands back a draft plus an explicit "verify before you send" list.
 
----
+### How it works
 
-## Milestone 3 — RAG (stretch)
-
-Two BM25 indices, both built from small local corpora checked into the repo (no external embedding calls, no extra API key).
-
+New files:
 ```
-data/
-  journalists/*.md     # 1 file per persona: bio, beat, 3-5 sample past headlines/ledes, tone notes
-  playbook/*.md         # PR best-practice docs: what makes a pitch land, embargo etiquette, common mistakes
-lib/rag/
-  chunk.ts               # simple chunking (by heading / fixed-size with overlap)
-  bm25.ts                 # BM25 index + query (small hand-rolled or a lightweight JS BM25 lib)
-  retrieve.ts             # multi-index retrieval: query both indices, merge top-k, tag by source
+app/api/compile-email/route.ts    # POST — takes the finished thread, returns a structured send-ready email
+lib/anthropic/compose.ts           # compose_pitch_email tool schema + the consultant-voice system prompt
+components/PitchEmail.tsx           # editable card: subject, body, before/after diff, pre-send checklist, copy / mailto
 ```
 
-- On each turn: retrieve top-k chunks from **both** indices using the pitch + client news as the query, inject as a `<context>` block in the user turn (also `cache_control`-tagged where it repeats).
-- Enable **citations** (`citations: {enabled: true}` on the injected document blocks) so the journalist's critique can quote the exact playbook line or past-article snippet it's using — surfaced in the UI as small footnote-style references.
+- **Input:** the full simulator `messages[]` history (already in `Simulator.tsx` state), the original pasted pitch (first user turn), the winning `score_pitch` breakdown (strengths to keep, weaknesses that got fixed), and the journalist persona (real name / outlet / beat / pet peeves).
+- **One forced tool call** — `tool_choice: {type: "tool", name: "compose_pitch_email"}` — returns:
+  ```ts
+  {
+    subject: string,             // tight and specific — never "Story idea" or "Quick question"
+    body: string,                // the full outreach email, [[merge fields]] for anything not in the thread
+    keyProofPoints: string[],    // the concrete facts that carried the pitch (pulled from the simulation)
+    simulationEdits: string[],   // "Added retention data — journalist demanded it on turn 2", one per real change
+    suggestedAttachments: string[],
+    preSendChecklist: string[]   // the human-review gate: what to confirm before hitting send
+  }
+  ```
+- **Perspective switch (the "chaining" beat for the video):** `/api/simulate` writes *as the journalist*. This route writes *as the consultant doing real outreach*, and is handed the journalist's pet peeves as anti-patterns to avoid ("recipient rejects buzzwords and vague claims — keep every sentence concrete, match their brevity").
+- **Grounding rules in the system prompt:** the body must be built only from facts established in the thread; every proof point the journalist demanded must appear; strip anything the journalist flagged as filler; close with one specific, low-friction CTA (a short call, with `[[your availability]]` as a merge field — the consultant proposes times, *not* the fictional slots the simulated journalist "offered").
+- **Never invent:** client contact details, real dates, embargo dates, headcount/revenue not stated in the thread → all `[[merge fields]]`.
+- **Reuse the cached system block** where the persona text repeats — same `cache_control` pattern as Milestone 1.
+- **UI:** `PitchEmail.tsx` renders subject + body as editable `<textarea>`s (pre-filled, tweak in place), a collapsible **before/after** view (original pasted pitch vs. compiled email) annotated with `simulationEdits`, the `preSendChecklist` as real checkboxes, a "Copy email" button, and a `mailto:?subject=…&body=…` link. Lives inline in the transcript under the `book_meeting` turn.
+
+### Creative extensions (pick what fits the time; each is small)
+- **Subject-line options** — return 2–3 subject lines each with a one-line rationale; consultant picks.
+- **Run it back** — a "Would this still get the meeting?" button that sends the *compiled* email back through the simulator once as a final gut-check. Closes the app's own loop.
+- **"What the simulation taught us"** — surface `simulationEdits` as a standalone highlight panel; it's the strongest evidence of AI-output verification for the demo video.
+- **Length/warmth variants** — `compose_pitch_email` returns `cold` vs. `warm-intro` (already met) drafts; shadcn `Tabs` switch. One call, array output.
+- **`.eml` download** — offer the draft as a downloadable `.eml` file, not just clipboard.
 
 ### Verification
-- Query the BM25 index directly (unit-level script) for a known pitch topic and confirm relevant journalist/playbook chunks rank highly.
-- Confirm a critique response includes at least one citation back to a specific `data/` document during manual testing.
+- Compile off a strong multi-turn thread; confirm the email's proof points are the *specific* numbers/answers from that thread, not generic filler.
+- Confirm every `request_data` / `ask_question` turn in the thread shows up as a concrete change in `simulationEdits` and in the body.
+- Confirm no invented contact details / dates / figures — anything not in the thread comes out as a `[[merge field]]`.
+- Confirm the CTA proposes the consultant's availability as a merge field, and does not reference the simulated journalist's fictional proposed times.
+- Confirm the button is only offered on `book_meeting` turns.
+- Confirm "Copy email", the `mailto:` link, and the `.eml` (if built) carry the edited text, not the original.
 
 ### Phases (commit after each)
-- [ ] **3.1 Corpora + chunking** — write `data/journalists/*.md` and `data/playbook/*.md`; implement `chunk.ts`.
-- [ ] **3.2 BM25 indices + multi-index retrieval** — `bm25.ts`, `retrieve.ts`; inject retrieved `<context>` into each turn (verify retrieval standalone before wiring into the API route).
-- [ ] **3.3 Citations** — enable `citations` on injected document blocks; render footnote-style references in `Transcript.tsx`.
-
----
-
-## Milestone 4 — Agents & Workflows (stretch)
-
-Three additions, each mapping to a distinct course concept — call this out explicitly in the video, since the course draws a real line between "agent" and "workflow":
-
-1. **Routing workflow** (`lib/agents/route.ts`): one small, cheap Claude call classifies the pitch category (launch / funding / exec move / crisis / other) and picks the best-fit persona automatically, offered as an "Auto-pick journalist" option next to the manual persona selector.
-2. **Parallelization workflow — "Gauntlet Mode"** (`app/api/gauntlet/route.ts`): the same pitch is sent to 3 personas concurrently (`Promise.all`), results rendered side-by-side so the consultant sees how the pitch lands across outlets at once.
-3. **Chaining workflow — "Coach Mode"**: after a rejection, an explicit deterministic chain — critique (already have it) → a second call proposes a concrete rewrite → consultant edits/accepts → resubmits to the same journalist. This is a fixed pipeline (workflow), contrasted with the main simulator loop which is the "agent" (autonomous, picks its own next action via tool use each turn).
-
-### Verification
-- Trigger Gauntlet Mode and confirm 3 independent, concurrent responses render without blocking on each other.
-- Confirm routing picks a sensible persona for an obviously funding-related vs. obviously product-launch pitch.
-- Walk the Coach Mode chain end-to-end once manually.
-
-### Phases (commit after each)
-- [ ] **4.1 Routing workflow** — `lib/agents/route.ts` classifier call; "Auto-pick journalist" option in the UI.
-- [ ] **4.2 Parallelization workflow (Gauntlet Mode)** — `app/api/gauntlet/route.ts` firing 3 personas concurrently; side-by-side results UI.
-- [ ] **4.3 Chaining workflow (Coach Mode)** — critique → rewrite-suggestion chain; consultant edit/accept step; resubmit.
-
----
-
-## Milestone 5 — Evals / Model-Graded Testing + Export (stretch, do last)
-
-1. **Model-based grading harness** (`scripts/evals/run.ts`, run via `tsx`): a fixed set of ~5–8 test pitches (some strong, some weak, some borderline) run through the journalist agent; a separate Claude "grader" call scores each response against a rubric (persona consistency, realism, did-it-take-exactly-one-action, is-the-score-sane). Prints a pass/fail table — this is the dev-facing "professional skepticism toward AI" artifact worth showing in the video.
-2. **Export Session Report** (stretch, only if time remains): uses the Files API / code execution to turn a finished thread into a shareable markdown or PDF recap.
-
-### Verification
-- `npm run evals` runs standalone (no UI needed) and prints a scored table for all fixed test pitches.
-- Spot-check one eval grade manually against the actual transcript to confirm the grader's judgment is sane.
-
-### Phases (commit after each)
-- [ ] **5.1 Eval harness** — `scripts/evals/run.ts`, fixed test pitches, grader rubric call, printed pass/fail table.
-- [ ] **5.2 Export Session Report** (only if time remains) — Files API / code execution recap export.
-- [ ] **5.3 README** — setup steps, architecture + feature map, demo notes for the video.
+- [ ] **2.1 compose_pitch_email tool + route** — `lib/anthropic/compose.ts` (schema + consultant system prompt with the grounding rules), `app/api/compile-email/route.ts` forcing the single tool call; test via curl against a hand-written sample thread, no UI yet.
+- [ ] **2.2 PitchEmail card + trigger** — `components/PitchEmail.tsx`; "Compile the send-ready pitch" button on `book_meeting` turns in `Transcript.tsx`; wire to the route; editable subject/body, before/after diff, pre-send checklist, copy button + `mailto:` link.
+- [ ] **2.3 Polish** — one or two of the creative extensions above (subject-line options and/or "run it back"), plus the "What the simulation taught us" panel. Update CLAUDE.md structure section and README/TESTING notes.
 
 ---
 
 ## Commit Cadence
 
-Matches the job's "trunk-based, small commits, main always releasable" ethos: one commit per checked-off phase above (`1.1`, `1.2`, ... `5.3`), each left in a working state — never a giant single commit per milestone. Milestone 1 (phases 1.1–1.5) is a legitimate stopping point if time runs short; everything from Milestone 2 onward is additive stretch on top of a working app.
+Matches the job's "trunk-based, small commits, main always releasable" ethos: one commit per checked-off phase above (`1.1` … `2.3`), each left in a working state — never a giant single commit per milestone. Milestone 1 is a complete, demoable app on its own; Milestone 2 is additive and leaves it releasable at every phase.
