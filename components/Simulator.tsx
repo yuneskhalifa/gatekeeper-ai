@@ -51,6 +51,39 @@ export function Simulator() {
     });
   }
 
+  async function compileEmail(turnIndex: number) {
+    patchTurn(turnIndex, { email: { status: "pending" } });
+    try {
+      const res = await fetch("/api/compile-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: history }),
+      });
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        patchTurn(turnIndex, {
+          email: {
+            status: "error",
+            message: data.error ?? "Couldn't compile the email.",
+          },
+        });
+        return;
+      }
+
+      patchTurn(turnIndex, {
+        email: { status: "done", draft: data.draft },
+      });
+    } catch {
+      patchTurn(turnIndex, {
+        email: {
+          status: "error",
+          message: "Something went wrong compiling the email.",
+        },
+      });
+    }
+  }
+
   async function sendPitch(text: string) {
     const requestMessages: Anthropic.MessageParam[] = [
       ...history,
@@ -160,7 +193,7 @@ export function Simulator() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="mx-auto flex min-h-full w-full max-w-4xl flex-col px-6 py-8">
-            <Transcript turns={turns} />
+            <Transcript turns={turns} onCompileEmail={compileEmail} />
           </div>
         </div>
 
