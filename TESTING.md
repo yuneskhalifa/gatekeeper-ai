@@ -4,8 +4,9 @@ Milestone 1 (Tests 1–5): persona/tool behavior across all four
 actions, structured scoring, streaming, multi-turn memory, and
 composer/UI mechanics.
 
-Milestone 2 (Tests 6–7): compiling a passed pitch into a send-ready
-outreach email, and sending it over SMTP.
+Milestone 2 (Tests 6–8): compiling a passed pitch into a send-ready
+outreach email, answering the gaps the score still flagged, and
+sending it over SMTP.
 
 ## Prerequisites
 
@@ -104,7 +105,7 @@ Covers: conversation memory across turns, the composer's disabled/clearing/keybo
 Covers: the `book_meeting` trigger, `/api/compile-email`, `compose_pitch_email` structured output, the `PitchEmail` card, grounding + merge-field discipline.
 
 1. Run a pitch through to **Meeting Booked** — fastest path is Test 4's Acme Robotics pitch, or the full Test 5 refinement flow if you want a multi-turn thread.
-2. Under that turn a gold callout appears: "Your pitch cleared the gatekeeper." Click **Compile**.
+2. Under that turn a gold callout appears. If the score for that turn still listed **weaknesses**, the callout reads "Answer the N gaps Yunes flagged…" / "Strengthen & compile" — see Test 8. If there were no weaknesses it reads "Your pitch cleared the gatekeeper." / "Compile". Click it (with no weaknesses, this compiles straight away).
 3. A pulsing "Compiling the send-ready pitch..." shows, then the **Send-Ready Pitch** card renders. Confirm:
    - **Subject** is specific to the story, not "Story idea" / "Quick question".
    - **Body** is built only from facts in the thread. Anything it can't know — the consultant's name, contact details, exact availability, embargo date — appears as a highlighted `[[merge field]]`, never invented. The "N merge fields to fill in" counter matches what's visible.
@@ -135,3 +136,27 @@ Covers: the editable recipient field, the send gate, `/api/send-email`, `lib/ema
 7. Enter your own address in **To**, click **Send email**. Confirm the button goes "Sending..." → "Sent" (and stays disabled), and a "Email sent to …" line appears.
 8. Check the destination inbox — confirm the message arrived with the *edited* subject and body (plain text), from `SMTP_FROM`.
 9. Re-check `/api/send-email` rejects a body containing `[[...]]` even if the client is bypassed (optional: curl it directly).
+
+---
+
+## Test 8 — Weakness pass before compiling
+
+Covers: the answer-or-skip form on `book_meeting` turns with remaining weaknesses, the `/api/vet-answers` sanity check, `weaknessResponses[]` → `/api/compile-email`, grounding of consultant-supplied answers.
+
+1. Get to **Meeting Booked** on a turn whose score still shows a populated **Weaknesses** column (Test 4's Acme pitch usually books with 2–4 weaknesses still listed — "no revenue mentioned", "company stage unclear", etc.).
+2. The callout reads "Answer the N gaps Yunes flagged, then compile the email." with a **Strengthen & compile** action. Click it.
+3. Confirm an inline form appears: one red-bulleted weakness per row, each with its own answer box and the hint "Leave a box blank to skip that point."
+4. Answer one or two, leave the rest blank. Confirm the primary button label reflects the count ("Compile with 2 answers"); clearing all boxes changes it to "Compile without answering".
+5. **Nonsense check:** put a junk answer in one box (`asdf banana 42`) and a real answer in another, then click compile. Confirm the button shows "Checking answers..." briefly, then:
+   - the junk row gets a red border and a "⚠ …" line explaining it doesn't hold up
+   - the form does **not** compile — it stays open
+   - the header hint switches to "1 answer didn't hold up — revise it or clear the box to skip…"
+   - the button becomes **Re-check & compile**
+6. Fix the junk row (or clear it to skip) and click **Re-check & compile**. Editing a flagged box clears its warning immediately. Confirm it now passes and compiles.
+7. Click it. Confirm it compiles (pulsing → card).
+8. On the card, confirm:
+   - Each **answered** point is now reflected in the body as a concrete statement.
+   - Each **skipped** point is NOT in the body — it wasn't invented or hand-waved.
+   - **What the simulation changed** attributes the new lines to the consultant's post-simulation input, not to a journalist turn.
+9. Click **Cancel** on a fresh run instead — confirm it returns to the plain callout without compiling.
+10. Confirm a `book_meeting` turn with an empty Weaknesses column skips the form entirely (plain "Compile" — Test 6).

@@ -32,6 +32,7 @@ app/
   page.tsx                    # simulator UI
   api/simulate/route.ts       # POST — streams a journalist turn
   api/compile-email/route.ts  # POST — compiles a passed pitch into a send-ready email (Milestone 2)
+  api/vet-answers/route.ts    # POST — sanity-checks the consultant's weakness answers before compile (Milestone 2)
   api/send-email/route.ts     # POST — sends the compiled email over SMTP (Milestone 2)
 lib/
   anthropic/                  # SDK client, persona system prompts, tool schemas

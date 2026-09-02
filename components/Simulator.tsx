@@ -51,13 +51,16 @@ export function Simulator() {
     });
   }
 
-  async function compileEmail(turnIndex: number) {
+  async function compileEmail(
+    turnIndex: number,
+    weaknessResponses?: { weakness: string; answer: string }[]
+  ) {
     patchTurn(turnIndex, { email: { status: "pending" } });
     try {
       const res = await fetch("/api/compile-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history }),
+        body: JSON.stringify({ messages: history, weaknessResponses }),
       });
       const data = await res.json();
 

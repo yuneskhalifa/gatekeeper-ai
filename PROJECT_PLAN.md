@@ -116,8 +116,10 @@ It's also the best place to show the AI being *directed well and checked*: the c
 New files:
 ```
 app/api/compile-email/route.ts    # POST — takes the finished thread, returns a structured send-ready email
+app/api/vet-answers/route.ts       # POST — quick usable/not check on the weakness answers before compile
 app/api/send-email/route.ts        # POST — sends the (edited) email over SMTP
 lib/anthropic/compose.ts           # compose_pitch_email tool schema + the consultant-voice system prompt
+lib/anthropic/vet.ts               # vet_answers tool schema + editor system prompt
 lib/email/mailer.ts                # nodemailer SMTP transport, env-configured
 components/PitchEmail.tsx           # editable card: recipient, subject, body, before/after diff, pre-send checklist, copy / send
 ```
@@ -138,6 +140,7 @@ components/PitchEmail.tsx           # editable card: recipient, subject, body, b
 - **Grounding rules in the system prompt:** the body must be built only from facts established in the thread; every proof point the journalist demanded must appear; strip anything the journalist flagged as filler; close with one specific, low-friction CTA (a short call, with `[[your availability]]` as a merge field — the consultant proposes times, *not* the fictional slots the simulated journalist "offered").
 - **Never invent:** client contact details, real dates, embargo dates, headcount/revenue not stated in the thread → all `[[merge fields]]`.
 - **Reuse the cached system block** where the persona text repeats — same `cache_control` pattern as Milestone 1.
+- **Weakness pass (pre-compile):** if the final `score_pitch` still lists weaknesses on the `book_meeting` turn, clicking Compile first opens an inline form — one answer box per weakness, each skippable. On submit, the answered ones go through `/api/vet-answers` (a fast `FAST_MODEL` call forcing a `vet_answers` structured output) which judges each answer as usable or not; anything non-responsive, incoherent, or too vague is flagged back on that row for the consultant to revise or clear, and compile is blocked until the flagged answers pass or are skipped. Answers that pass are sent to `/api/compile-email` as `weaknessResponses[]`; the route folds them in as consultant-supplied facts and explicitly leaves any un-answered gap out rather than paper over it. This is where the consultant strengthens the final email past what the simulation alone produced.
 - **UI:** `PitchEmail.tsx` renders an editable recipient address plus subject + body as editable fields (pre-filled, tweak in place), a **before/after** view (original pasted pitch vs. compiled email), the `simulationEdits` in an always-visible "What the simulation changed" panel, `suggestedAttachments` + `preSendChecklist` as real checkboxes, a "Copy email" button, and a **"Send email"** button that posts to `/api/send-email`. Send is blocked until the recipient is a valid address and every `[[merge field]]` is filled. Lives inline in the transcript under the `book_meeting` turn.
 - **Sending (`/api/send-email` + `lib/email/mailer.ts`):** a `nodemailer` SMTP transport, configured entirely from `SMTP_*` env vars (see `.env.example`). The route re-validates the recipient, rejects any remaining `[[merge field]]`, and returns a clear "SMTP isn't configured" error when the env vars are absent — nothing is ever sent implicitly.
 
@@ -159,6 +162,7 @@ components/PitchEmail.tsx           # editable card: recipient, subject, body, b
 - [x] **2.1 compose_pitch_email tool + route** — `lib/anthropic/compose.ts` (schema + consultant system prompt with the grounding rules), `app/api/compile-email/route.ts` forcing the single tool call; test via curl against a hand-written sample thread, no UI yet.
 - [x] **2.2 PitchEmail card + trigger** — `components/PitchEmail.tsx`; "Compile the send-ready pitch" button on `book_meeting` turns in `Transcript.tsx`; wire to the route; editable subject/body, before/after diff, pre-send checklist, copy button.
 - [x] **2.3 Polish + SMTP send** — the always-visible "What the simulation changed" panel (promoted out of the Before/After tab); an editable recipient field and a **"Send email"** button wired to a new `/api/send-email` route (`lib/email/mailer.ts`, nodemailer, `SMTP_*` env), gated on a valid address and zero remaining merge fields. `TESTING.md` gains Tests 6–7; `.env.example` documents the SMTP vars; CLAUDE.md structure updated.
+- [x] **2.4 Weakness pass** — when the `book_meeting` turn still has `score_pitch` weaknesses, Compile opens an inline answer-or-skip form. Submitted answers first go through `/api/vet-answers` (`lib/anthropic/vet.ts`, forced `vet_answers` on `FAST_MODEL`); non-answers / gibberish / too-vague replies are flagged back on the row and block compile until fixed or skipped. Answers that pass flow to `/api/compile-email` as `weaknessResponses[]` and get folded into the compiled email as consultant-supplied facts.
 
 ---
 

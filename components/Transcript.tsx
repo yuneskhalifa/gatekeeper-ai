@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ArrowRight } from "lucide-react";
 import type { PitchEmailDraft } from "@/lib/anthropic/compose";
 import { yunesKhalifa } from "@/lib/anthropic/personas";
@@ -7,6 +8,10 @@ import { ScoreGauge } from "@/components/ScoreGauge";
 import { VerdictStamp } from "@/components/ToolActionBadge";
 import { PitchEmail } from "@/components/PitchEmail";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+
+export type WeaknessResponse = { weakness: string; answer: string };
 
 export type EmailState =
   | { status: "pending" }
@@ -73,6 +78,167 @@ function EmptyState() {
   );
 }
 
+function WeaknessForm({
+  weaknesses,
+  onCancel,
+  onSubmit,
+}: {
+  weaknesses: string[];
+  onCancel: () => void;
+  onSubmit: (responses: WeaknessResponse[]) => void;
+}) {
+  const [answers, setAnswers] = useState<string[]>(() =>
+    weaknesses.map(() => "")
+  );
+  // rowIndex -> issue, for answers the vet step sent back as not usable
+  const [flags, setFlags] = useState<Record<number, string>>({});
+  const [vetting, setVetting] = useState(false);
+  const [vetError, setVetError] = useState<string | null>(null);
+  const firstName = yunesKhalifa.name.split(" ")[0];
+  const answeredCount = answers.filter((a) => a.trim().length > 0).length;
+
+  function setAnswer(i: number, value: string) {
+    setAnswers((prev) => {
+      const next = [...prev];
+      next[i] = value;
+      return next;
+    });
+    // editing a flagged answer clears its stale flag until it's re-checked
+    setFlags((prev) => {
+      if (!(i in prev)) return prev;
+      const next = { ...prev };
+      delete next[i];
+      return next;
+    });
+  }
+
+  async function submit() {
+    const responses = weaknesses
+      .map((weakness, i) => ({ weakness, answer: answers[i].trim() }))
+      .filter((r) => r.answer.length > 0);
+
+    if (responses.length === 0) {
+      onSubmit([]);
+      return;
+    }
+
+    const withIndex = weaknesses
+      .map((weakness, index) => ({ index, weakness, answer: answers[index].trim() }))
+      .filter((r) => r.answer.length > 0);
+
+    setVetting(true);
+    setVetError(null);
+    try {
+      const res = await fetch("/api/vet-answers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: withIndex }),
+      });
+      const data = await res.json();
+
+      if (res.ok && Array.isArray(data.verdicts)) {
+        const bad: Record<number, string> = {};
+        for (const v of data.verdicts as {
+          index: number;
+          usable: boolean;
+          issue: string;
+        }[]) {
+          if (!v.usable) {
+            bad[v.index] = v.issue || "This answer doesn't hold up — revise it or skip it.";
+          }
+        }
+        if (Object.keys(bad).length > 0) {
+          setFlags(bad);
+          setVetting(false);
+          return;
+        }
+      } else if (!res.ok) {
+        // vetting failed — don't block the consultant, just note it
+        setVetError(data.error ?? "Couldn't check the answers.");
+      }
+    } catch {
+      setVetError("Couldn't check the answers — compiling anyway.");
+    }
+
+    setVetting(false);
+    onSubmit(responses);
+  }
+
+  const flaggedCount = Object.keys(flags).length;
+
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium text-foreground">
+          Answer what {firstName} still flagged
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {flaggedCount > 0
+            ? `${flaggedCount} answer${
+                flaggedCount === 1 ? "" : "s"
+              } didn't hold up — revise ${
+                flaggedCount === 1 ? "it" : "them"
+              } or clear the box to skip, then compile again.`
+            : `${firstName} booked the meeting, but the score left these gaps. Fill in what you can — each answer gets folded into the email. Leave a box blank to skip that point.`}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {weaknesses.map((w, i) => (
+          <div key={i} className="flex flex-col gap-1.5">
+            <span className="flex gap-1.5 text-xs leading-relaxed text-foreground/80">
+              <span className="text-destructive">−</span>
+              <span>{w}</span>
+            </span>
+            <Textarea
+              value={answers[i]}
+              onChange={(e) => setAnswer(i, e.target.value)}
+              disabled={vetting}
+              placeholder="Your answer (or leave blank to skip)"
+              className={
+                flags[i]
+                  ? "min-h-[3.5rem] resize-y border-destructive text-[13px] leading-relaxed"
+                  : "min-h-[3.5rem] resize-y text-[13px] leading-relaxed"
+              }
+              aria-label={`Answer to: ${w}`}
+            />
+            {flags[i] && (
+              <span className="flex gap-1.5 text-[11px] leading-relaxed text-destructive">
+                <span aria-hidden>⚠</span>
+                <span>{flags[i]}</span>
+              </span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {vetError && (
+        <p className="text-[11px] text-muted-foreground">{vetError}</p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+        <Button size="sm" onClick={submit} disabled={vetting}>
+          {vetting
+            ? "Checking answers..."
+            : flaggedCount > 0
+              ? "Re-check & compile"
+              : answeredCount > 0
+                ? `Compile with ${answeredCount} answer${answeredCount === 1 ? "" : "s"}`
+                : "Compile without answering"}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onCancel}
+          disabled={vetting}
+        >
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function CompileEmailSection({
   turn,
   originalPitch,
@@ -80,9 +246,11 @@ function CompileEmailSection({
 }: {
   turn: Turn;
   originalPitch: string;
-  onCompile: () => void;
+  onCompile: (responses?: WeaknessResponse[]) => void;
 }) {
   const firstName = yunesKhalifa.name.split(" ")[0];
+  const [prompting, setPrompting] = useState(false);
+  const weaknesses = turn.score?.weaknesses ?? [];
 
   if (turn.email?.status === "done") {
     return (
@@ -104,11 +272,29 @@ function CompileEmailSection({
 
   const isRetry = turn.email?.status === "error";
 
+  if (prompting) {
+    return (
+      <div className="flex flex-col gap-1.5 pl-11">
+        <WeaknessForm
+          weaknesses={weaknesses}
+          onCancel={() => setPrompting(false)}
+          onSubmit={(responses) => {
+            setPrompting(false);
+            onCompile(responses);
+          }}
+        />
+        {isRetry && turn.email?.status === "error" && (
+          <p className="text-xs text-destructive">{turn.email.message}</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-1.5 pl-11">
       <button
         type="button"
-        onClick={onCompile}
+        onClick={() => (weaknesses.length > 0 ? setPrompting(true) : onCompile())}
         className="group flex w-full items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-left transition-colors hover:bg-primary/10"
       >
         <span className="flex flex-col">
@@ -118,11 +304,15 @@ function CompileEmailSection({
               : "Your pitch cleared the gatekeeper."}
           </span>
           <span className="text-xs text-muted-foreground">
-            Compile it into the email you send {firstName}.
+            {weaknesses.length > 0
+              ? `Answer the ${weaknesses.length} gap${
+                  weaknesses.length === 1 ? "" : "s"
+                } ${firstName} flagged, then compile the email.`
+              : `Compile it into the email you send ${firstName}.`}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-1.5 font-mono text-xs font-semibold text-primary">
-          Compile
+          {weaknesses.length > 0 ? "Strengthen & compile" : "Compile"}
           <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
         </span>
       </button>
@@ -138,7 +328,10 @@ export function Transcript({
   onCompileEmail,
 }: {
   turns: Turn[];
-  onCompileEmail: (turnIndex: number) => void;
+  onCompileEmail: (
+    turnIndex: number,
+    weaknessResponses?: WeaknessResponse[]
+  ) => void;
 }) {
   if (turns.length === 0) {
     return <EmptyState />;
@@ -206,7 +399,7 @@ export function Transcript({
               <CompileEmailSection
                 turn={turn}
                 originalPitch={originalPitch}
-                onCompile={() => onCompileEmail(i)}
+                onCompile={(responses) => onCompileEmail(i, responses)}
               />
             )}
         </div>
