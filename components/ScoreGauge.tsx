@@ -32,26 +32,40 @@ export function ScoreGauge({
 
       {(strengths.length > 0 || weaknesses.length > 0) && (
         <div className="grid grid-cols-2 gap-3 pt-1 font-mono text-[11px] leading-relaxed">
-          {strengths.length > 0 && (
-            <ul className="space-y-1">
-              {strengths.map((s, i) => (
-                <li key={i} className="flex gap-1.5 text-muted-foreground">
-                  <span className="text-primary">+</span>
-                  <span>{s}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-          {weaknesses.length > 0 && (
-            <ul className="space-y-1">
-              {weaknesses.map((w, i) => (
-                <li key={i} className="flex gap-1.5 text-muted-foreground">
-                  <span className="text-destructive">−</span>
-                  <span>{w}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="space-y-1.5">
+            <p className="text-[10px] tracking-widest text-primary uppercase">
+              Strengths
+            </p>
+            {strengths.length > 0 ? (
+              <ul className="space-y-1">
+                {strengths.map((s, i) => (
+                  <li key={i} className="flex gap-1.5 text-muted-foreground">
+                    <span className="text-primary">+</span>
+                    <span>{s}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground/60">None noted.</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <p className="text-[10px] tracking-widest text-destructive uppercase">
+              Weaknesses
+            </p>
+            {weaknesses.length > 0 ? (
+              <ul className="space-y-1">
+                {weaknesses.map((w, i) => (
+                  <li key={i} className="flex gap-1.5 text-muted-foreground">
+                    <span className="text-destructive">−</span>
+                    <span>{w}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted-foreground/60">None noted.</p>
+            )}
+          </div>
         </div>
       )}
     </div>
