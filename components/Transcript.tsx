@@ -201,6 +201,7 @@ export function Transcript({
           </div>
 
           {turn.action?.name === "book_meeting" &&
+            turn.score &&
             (i === turns.length - 1 || turn.email) && (
               <CompileEmailSection
                 turn={turn}
