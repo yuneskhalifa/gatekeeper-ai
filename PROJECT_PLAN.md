@@ -103,7 +103,7 @@ No hand-rolled or third-party design system (no Material Design) — **shadcn/ui
 
 ## Milestone 2 — Send-Ready Pitch Email
 
-Layers onto Milestone 1 without changing its shape. When a turn's action is `book_meeting`, the pitch has cleared the gatekeeper. The transcript then shows a **"Compile the send-ready pitch"** button under that turn. Clicking it calls a new endpoint that rewrites the pitch as the actual cold-outreach email the consultant will send to the real journalist — rendered as an editable card with a before/after diff, a pre-send checklist, copy-to-clipboard, and a `mailto:` link.
+Layers onto Milestone 1 without changing its shape. When a turn's action is `book_meeting`, the pitch has cleared the gatekeeper. The transcript then shows a **"Compile the send-ready pitch"** button under that turn. Clicking it calls a new endpoint that rewrites the pitch as the actual cold-outreach email the consultant will send to the real journalist — rendered as an editable card with a before/after diff, a pre-send checklist, an editable recipient address, copy-to-clipboard, and one-click send over SMTP.
 
 ### Why this is the right last feature
 
@@ -116,8 +116,10 @@ It's also the best place to show the AI being *directed well and checked*: the c
 New files:
 ```
 app/api/compile-email/route.ts    # POST — takes the finished thread, returns a structured send-ready email
+app/api/send-email/route.ts        # POST — sends the (edited) email over SMTP
 lib/anthropic/compose.ts           # compose_pitch_email tool schema + the consultant-voice system prompt
-components/PitchEmail.tsx           # editable card: subject, body, before/after diff, pre-send checklist, copy / mailto
+lib/email/mailer.ts                # nodemailer SMTP transport, env-configured
+components/PitchEmail.tsx           # editable card: recipient, subject, body, before/after diff, pre-send checklist, copy / send
 ```
 
 - **Input:** the full simulator `messages[]` history (already in `Simulator.tsx` state), the original pasted pitch (first user turn), the winning `score_pitch` breakdown (strengths to keep, weaknesses that got fixed), and the journalist persona (real name / outlet / beat / pet peeves).
@@ -136,12 +138,11 @@ components/PitchEmail.tsx           # editable card: subject, body, before/after
 - **Grounding rules in the system prompt:** the body must be built only from facts established in the thread; every proof point the journalist demanded must appear; strip anything the journalist flagged as filler; close with one specific, low-friction CTA (a short call, with `[[your availability]]` as a merge field — the consultant proposes times, *not* the fictional slots the simulated journalist "offered").
 - **Never invent:** client contact details, real dates, embargo dates, headcount/revenue not stated in the thread → all `[[merge fields]]`.
 - **Reuse the cached system block** where the persona text repeats — same `cache_control` pattern as Milestone 1.
-- **UI:** `PitchEmail.tsx` renders subject + body as editable `<textarea>`s (pre-filled, tweak in place), a collapsible **before/after** view (original pasted pitch vs. compiled email) annotated with `simulationEdits`, the `preSendChecklist` as real checkboxes, a "Copy email" button, and a `mailto:?subject=…&body=…` link. Lives inline in the transcript under the `book_meeting` turn.
+- **UI:** `PitchEmail.tsx` renders an editable recipient address plus subject + body as editable fields (pre-filled, tweak in place), a **before/after** view (original pasted pitch vs. compiled email), the `simulationEdits` in an always-visible "What the simulation changed" panel, `suggestedAttachments` + `preSendChecklist` as real checkboxes, a "Copy email" button, and a **"Send email"** button that posts to `/api/send-email`. Send is blocked until the recipient is a valid address and every `[[merge field]]` is filled. Lives inline in the transcript under the `book_meeting` turn.
+- **Sending (`/api/send-email` + `lib/email/mailer.ts`):** a `nodemailer` SMTP transport, configured entirely from `SMTP_*` env vars (see `.env.example`). The route re-validates the recipient, rejects any remaining `[[merge field]]`, and returns a clear "SMTP isn't configured" error when the env vars are absent — nothing is ever sent implicitly.
 
 ### Creative extensions (pick what fits the time; each is small)
 - **Subject-line options** — return 2–3 subject lines each with a one-line rationale; consultant picks.
-- **Run it back** — a "Would this still get the meeting?" button that sends the *compiled* email back through the simulator once as a final gut-check. Closes the app's own loop.
-- **"What the simulation taught us"** — surface `simulationEdits` as a standalone highlight panel; it's the strongest evidence of AI-output verification for the demo video.
 - **Length/warmth variants** — `compose_pitch_email` returns `cold` vs. `warm-intro` (already met) drafts; shadcn `Tabs` switch. One call, array output.
 - **`.eml` download** — offer the draft as a downloadable `.eml` file, not just clipboard.
 
@@ -151,12 +152,13 @@ components/PitchEmail.tsx           # editable card: subject, body, before/after
 - Confirm no invented contact details / dates / figures — anything not in the thread comes out as a `[[merge field]]`.
 - Confirm the CTA proposes the consultant's availability as a merge field, and does not reference the simulated journalist's fictional proposed times.
 - Confirm the button is only offered on `book_meeting` turns.
-- Confirm "Copy email", the `mailto:` link, and the `.eml` (if built) carry the edited text, not the original.
+- Confirm "Copy email" carries the edited text, not the original.
+- Confirm "Send email" is disabled until the recipient is valid and no `[[merge field]]` remains; with SMTP unset it reports a clear config error; with SMTP set it delivers the edited subject/body to the entered address.
 
 ### Phases (commit after each)
 - [x] **2.1 compose_pitch_email tool + route** — `lib/anthropic/compose.ts` (schema + consultant system prompt with the grounding rules), `app/api/compile-email/route.ts` forcing the single tool call; test via curl against a hand-written sample thread, no UI yet.
-- [x] **2.2 PitchEmail card + trigger** — `components/PitchEmail.tsx`; "Compile the send-ready pitch" button on `book_meeting` turns in `Transcript.tsx`; wire to the route; editable subject/body, before/after diff, pre-send checklist, copy button + `mailto:` link.
-- [x] **2.3 Polish** — "Run it back past the journalist" (a one-click cold read of the compiled email through `/api/simulate`, verdict + score shown inline on the card) and the always-visible "What the simulation changed" panel (promoted out of the Before/After tab). `TESTING.md` gains Tests 6–7; CLAUDE.md structure already updated in 2.1.
+- [x] **2.2 PitchEmail card + trigger** — `components/PitchEmail.tsx`; "Compile the send-ready pitch" button on `book_meeting` turns in `Transcript.tsx`; wire to the route; editable subject/body, before/after diff, pre-send checklist, copy button.
+- [x] **2.3 Polish + SMTP send** — the always-visible "What the simulation changed" panel (promoted out of the Before/After tab); an editable recipient field and a **"Send email"** button wired to a new `/api/send-email` route (`lib/email/mailer.ts`, nodemailer, `SMTP_*` env), gated on a valid address and zero remaining merge fields. `TESTING.md` gains Tests 6–7; `.env.example` documents the SMTP vars; CLAUDE.md structure updated.
 
 ---
 

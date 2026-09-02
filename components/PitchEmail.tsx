@@ -6,13 +6,13 @@ import {
   Check,
   ClipboardList,
   Copy,
-  Mail,
+  Send,
   Paperclip,
   Sparkles,
 } from "lucide-react";
 import type { PitchEmailDraft } from "@/lib/anthropic/compose";
 import { yunesKhalifa } from "@/lib/anthropic/personas";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Tabs,
@@ -20,10 +20,10 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { VerdictStamp } from "@/components/ToolActionBadge";
 import { cn } from "@/lib/utils";
 
 const MERGE_FIELD = /\[\[.+?\]\]/g;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Renders text with [[merge fields]] visually flagged — used in the read-only
 // "after" view so the consultant can see at a glance what still needs filling.
@@ -96,44 +96,15 @@ function SectionLabel({
   );
 }
 
-// --- "Run it back past the journalist" ------------------------------------
-// Sends the compiled (and possibly edited) email back through the same
-// journalist persona as a cold read — the gatekeeper vets the final draft too.
+// --- SMTP send -----------------------------------------------------------
+// The compiled (and possibly edited) email goes out over the SMTP transport
+// configured in .env.local. Nothing is sent until the consultant clicks send.
 
-type SimAction = { name: string; input: Record<string, unknown> };
-
-type GateCheck =
+type SendState =
   | { status: "idle" }
-  | { status: "running" }
-  | { status: "done"; action: SimAction; score?: { score: number; verdict: string } }
+  | { status: "sending" }
+  | { status: "sent" }
   | { status: "error"; message: string };
-
-type SimEvent =
-  | { type: "action"; action: SimAction }
-  | {
-      type: "score";
-      score: {
-        score: number;
-        strengths: string[];
-        weaknesses: string[];
-        verdict: string;
-      };
-    }
-  | { type: "error"; message: string }
-  | {
-      type: "action_start" | "action_delta" | "score_start" | "score_delta" | "done";
-      [key: string]: unknown;
-    };
-
-function actionSummary(action: SimAction): string {
-  const { name, input } = action;
-  if (name === "reject_pitch") return String(input.critique ?? "");
-  if (name === "request_data") return String(input.request ?? "");
-  if (name === "ask_question") return String(input.question ?? "");
-  if (name === "book_meeting")
-    return String(input.notes ?? "Would take the meeting.");
-  return "";
-}
 
 export function PitchEmail({
   draft,
@@ -142,21 +113,20 @@ export function PitchEmail({
   draft: PitchEmailDraft;
   originalPitch: string;
 }) {
-  const firstName = yunesKhalifa.name.split(" ")[0];
-
+  const [to, setTo] = useState("");
   const [subject, setSubject] = useState(draft.subject);
   const [body, setBody] = useState(draft.body);
   const [copied, setCopied] = useState(false);
-  const [check, setCheck] = useState<GateCheck>({ status: "idle" });
+  const [send, setSend] = useState<SendState>({ status: "idle" });
 
   const mergeFieldCount = useMemo(
     () => (`${subject}\n${body}`.match(MERGE_FIELD) ?? []).length,
     [subject, body]
   );
 
-  const mailto = `mailto:?subject=${encodeURIComponent(
-    subject
-  )}&body=${encodeURIComponent(body)}`;
+  const toValid = EMAIL_RE.test(to.trim());
+  const canSend =
+    toValid && subject.trim().length > 0 && body.trim().length > 0 && mergeFieldCount === 0;
 
   async function copyEmail() {
     try {
@@ -164,65 +134,29 @@ export function PitchEmail({
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      // clipboard blocked — no-op, the mailto link is the fallback
+      // clipboard blocked — no-op
     }
   }
 
-  async function runItBack() {
-    setCheck({ status: "running" });
+  async function sendEmail() {
+    setSend({ status: "sending" });
     try {
-      const res = await fetch("/api/simulate", {
+      const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          messages: [
-            {
-              role: "user",
-              content: `[Cold outreach email — react as if this just landed in your inbox from a PR contact you don't know.]\n\nSubject: ${subject}\n\n${body}`,
-            },
-          ],
-        }),
+        body: JSON.stringify({ to: to.trim(), subject, body }),
       });
-
-      if (!res.body) {
-        setCheck({ status: "error", message: "No response from the journalist." });
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setSend({
+          status: "error",
+          message: data.error ?? "Couldn't send the email.",
+        });
         return;
       }
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let action: SimAction | undefined;
-      let score: { score: number; verdict: string } | undefined;
-      let error: string | undefined;
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-
-        const chunks = buffer.split("\n\n");
-        buffer = chunks.pop() ?? "";
-
-        for (const chunk of chunks) {
-          const line = chunk.trim();
-          if (!line.startsWith("data: ")) continue;
-          const event: SimEvent = JSON.parse(line.slice("data: ".length));
-          if (event.type === "action") action = event.action;
-          else if (event.type === "score")
-            score = { score: event.score.score, verdict: event.score.verdict };
-          else if (event.type === "error") error = event.message;
-        }
-      }
-
-      if (error) setCheck({ status: "error", message: error });
-      else if (action) setCheck({ status: "done", action, score });
-      else setCheck({ status: "error", message: "The journalist didn't respond." });
+      setSend({ status: "sent" });
     } catch {
-      setCheck({
-        status: "error",
-        message: "Something went wrong running it back.",
-      });
+      setSend({ status: "error", message: "Something went wrong sending the email." });
     }
   }
 
@@ -261,15 +195,18 @@ export function PitchEmail({
 
         <TabsContent value="email" className="flex flex-col gap-3">
           <div className="flex flex-col font-mono text-xs">
-            <div className="flex gap-2 border-b border-border/40 py-1.5">
+            <div className="flex items-center gap-2 border-b border-border/40">
               <span className="w-16 shrink-0 text-muted-foreground">To</span>
-              <span className="text-foreground/80">
-                {yunesKhalifa.name} &lt;
-                <mark className="rounded-sm bg-primary/25 px-1 font-medium text-foreground">
-                  [[ journalist email ]]
-                </mark>
-                &gt;
-              </span>
+              <input
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder={`${yunesKhalifa.name.toLowerCase().replace(" ", ".")}@${yunesKhalifa.outlet
+                  .toLowerCase()
+                  .replace(/[^a-z]/g, "")}.com`}
+                className="w-full bg-transparent py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+                aria-label="Recipient email address"
+                type="email"
+              />
             </div>
             <div className="flex items-center gap-2 border-b border-border/40">
               <span className="w-16 shrink-0 text-muted-foreground">
@@ -322,76 +259,42 @@ export function PitchEmail({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 border-t border-border/60 pt-3">
-            <Button size="sm" onClick={copyEmail}>
+          <div className="flex flex-wrap items-center gap-2 border-t border-border/60 pt-3">
+            <Button
+              size="sm"
+              onClick={sendEmail}
+              disabled={!canSend || send.status === "sending" || send.status === "sent"}
+            >
+              {send.status === "sent" ? <Check /> : <Send />}
+              {send.status === "sending"
+                ? "Sending..."
+                : send.status === "sent"
+                  ? "Sent"
+                  : "Send email"}
+            </Button>
+            <Button size="sm" variant="outline" onClick={copyEmail}>
               {copied ? <Check /> : <Copy />}
               {copied ? "Copied" : "Copy email"}
             </Button>
-            <a
-              href={mailto}
-              className={cn(buttonVariants({ size: "sm", variant: "outline" }))}
-            >
-              <Mail />
-              Open in mail client
-            </a>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={runItBack}
-              disabled={check.status === "running"}
-            >
-              <Sparkles />
-              {check.status === "running"
-                ? "Reading..."
-                : `Run it back past ${firstName}`}
-            </Button>
+            {to.length > 0 && !toValid && (
+              <span className="text-[11px] text-destructive">
+                Enter a valid email address.
+              </span>
+            )}
+            {toValid && mergeFieldCount > 0 && send.status === "idle" && (
+              <span className="text-[11px] text-muted-foreground">
+                Fill in the merge fields to enable send.
+              </span>
+            )}
           </div>
 
-          {check.status !== "idle" && (
-            <div className="rounded-lg border border-border/60 bg-muted/20 p-3">
-              <SectionLabel icon={<Sparkles className="size-3" />}>
-                {firstName}&apos;s read on this email
-              </SectionLabel>
-              <div className="mt-2">
-                {check.status === "running" && (
-                  <p className="animate-pulse font-mono text-xs text-muted-foreground">
-                    {firstName} is reading it back...
-                  </p>
-                )}
-                {check.status === "error" && (
-                  <p className="text-xs text-destructive">{check.message}</p>
-                )}
-                {check.status === "done" && (
-                  <div className="flex flex-col gap-2">
-                    <VerdictStamp action={check.action.name} />
-                    <p className="text-xs leading-relaxed text-foreground/80">
-                      {actionSummary(check.action)}
-                    </p>
-                    {check.score && (
-                      <div className="flex items-center gap-2 pt-1 font-mono text-[11px]">
-                        <span className="tracking-widest text-muted-foreground uppercase">
-                          Viability
-                        </span>
-                        <div className="h-1 w-24 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full rounded-full bg-primary"
-                            style={{
-                              width: `${Math.max(
-                                0,
-                                Math.min(100, check.score.score)
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="font-semibold text-foreground">
-                          {check.score.score}/100
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
+          {send.status === "error" && (
+            <p className="text-xs text-destructive">{send.message}</p>
+          )}
+          {send.status === "sent" && (
+            <p className="text-xs text-primary">
+              Email sent to {to.trim()}.
+            </p>
           )}
         </TabsContent>
 

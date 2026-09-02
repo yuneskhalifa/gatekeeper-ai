@@ -5,7 +5,7 @@ actions, structured scoring, streaming, multi-turn memory, and
 composer/UI mechanics.
 
 Milestone 2 (Tests 6–7): compiling a passed pitch into a send-ready
-outreach email, and running that email back past the journalist.
+outreach email, and sending it over SMTP.
 
 ## Prerequisites
 
@@ -111,18 +111,27 @@ Covers: the `book_meeting` trigger, `/api/compile-email`, `compose_pitch_email` 
    - The CTA proposes the consultant's availability as a merge field — it does **not** quote the times Yunes "offered" in the simulation.
    - **What the simulation changed** (top panel) lists concrete edits, each tied to a journalist turn (e.g. "Added the 40% figure — journalist ran request_data on turn 2"). On a multi-turn thread every `request_data` / `ask_question` turn should be represented.
    - **Attach before sending** and **Pre-send checklist** are populated; clicking an item strikes it through.
-4. Edit the subject and body. Click **Copy email**, paste into a scratch buffer — confirm it's the *edited* text with a `Subject:` line. Click **Open in mail client** — confirm the draft opens pre-filled with the edited subject/body.
+4. Edit the subject and body. Click **Copy email**, paste into a scratch buffer — confirm it's the *edited* text with a `Subject:` line.
 5. Open the **Before / After** tab — confirm the original pasted pitch shows on the left, the compiled email (with merge fields highlighted) on the right, and **Proof points carried in** lists the concrete facts.
 6. Confirm the Compile callout only appears on a `book_meeting` turn, and only on the most recent turn — send another pitch after booking and the old callout is gone.
 
 ---
 
-## Test 7 — Run the email back past the journalist
+## Test 7 — Send the compiled email over SMTP
 
-Covers: the "Run it back" button, reusing `/api/simulate` for a cold read of the compiled email, the inline verdict panel.
+Covers: the editable recipient field, the send gate, `/api/send-email`, `lib/email/mailer.ts`.
 
-1. From the card in Test 6, click **Run it back past Yunes** in the button row.
-2. Confirm the button switches to "Reading..." and a **"Yunes's read on this email"** panel appears below, showing a pulsing "Yunes is reading it back...".
-3. When it resolves, confirm the panel shows a verdict stamp (usually **Question Asked** or **Meeting Booked** for a strong compiled email), the journalist's reaction text, and a compact viability bar with a score.
-4. Sanity-check the reaction is about *this email as a cold pitch* (e.g. asking for differentiation, revenue, technical approach) — a genuinely useful last check before sending, not a restatement of the earlier thread.
-5. Leaving `[[merge fields]]` unfilled is fine here — Yunes may or may not flag them; the point is the email standing on its own. If the run errors, confirm a red error line shows and the button returns to its normal label so it can be retried.
+**Send gate (no SMTP config needed):**
+1. From the card in Test 6, leave the **To** field empty — confirm **Send email** is disabled.
+2. Type an obviously bad address (`not-an-email`) — confirm a red "Enter a valid email address." hint shows and Send stays disabled.
+3. Type a valid address but leave a `[[merge field]]` in the body — confirm Send stays disabled with a "Fill in the merge fields to enable send." hint.
+4. Fill every merge field and enter a valid address — confirm **Send email** enables.
+
+**Not configured:**
+5. With no `SMTP_*` vars in `.env.local`, click **Send email** — confirm it shows "Sending..." then a red error: "SMTP isn't configured. Set SMTP_HOST…".
+
+**Actually sending:**
+6. Put working SMTP creds in `.env.local` (a Mailtrap/Ethereal sandbox inbox is ideal — see `.env.example`), restart `npm run dev`.
+7. Enter your own address in **To**, click **Send email**. Confirm the button goes "Sending..." → "Sent" (and stays disabled), and a "Email sent to …" line appears.
+8. Check the destination inbox — confirm the message arrived with the *edited* subject and body (plain text), from `SMTP_FROM`.
+9. Re-check `/api/send-email` rejects a body containing `[[...]]` even if the client is bypassed (optional: curl it directly).

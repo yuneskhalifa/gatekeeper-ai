@@ -32,8 +32,10 @@ app/
   page.tsx                    # simulator UI
   api/simulate/route.ts       # POST — streams a journalist turn
   api/compile-email/route.ts  # POST — compiles a passed pitch into a send-ready email (Milestone 2)
+  api/send-email/route.ts     # POST — sends the compiled email over SMTP (Milestone 2)
 lib/
   anthropic/                  # SDK client, persona system prompts, tool schemas
+  email/                      # SMTP transport (nodemailer) for /api/send-email
 components/
   ui/                         # shadcn/ui primitives — owned source, not a dependency
   *.tsx                       # app-specific components (Simulator, Transcript, ...)
