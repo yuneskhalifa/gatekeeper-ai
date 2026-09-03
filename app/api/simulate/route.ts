@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { anthropic, MODEL } from "@/lib/anthropic/client";
-import { buildSystemPrompt, yunesKhalifa } from "@/lib/anthropic/personas";
 import { actionTools, scorePitchTool } from "@/lib/anthropic/tools";
+import { buildSystem, firstToolUse, toolResultFor } from "@/lib/anthropic/turn";
 
 export const runtime = "nodejs";
 
@@ -24,31 +24,9 @@ type SimulateEvent =
   | { type: "done"; messages: Anthropic.MessageParam[] }
   | { type: "error"; message: string };
 
-function toolResultFor(
-  toolUseId: string,
-  content: string
-): Anthropic.MessageParam {
-  return {
-    role: "user",
-    content: [{ type: "tool_result", tool_use_id: toolUseId, content }],
-  };
-}
-
-function firstToolUse(
-  message: Anthropic.Message
-): Anthropic.ToolUseBlock | undefined {
-  return message.content.find((b) => b.type === "tool_use");
-}
-
 export async function POST(req: Request) {
   const { messages }: SimulateRequest = await req.json();
-  const system = [
-    {
-      type: "text" as const,
-      text: buildSystemPrompt(yunesKhalifa),
-      cache_control: { type: "ephemeral" as const },
-    },
-  ];
+  const system = buildSystem();
 
   const encoder = new TextEncoder();
 
