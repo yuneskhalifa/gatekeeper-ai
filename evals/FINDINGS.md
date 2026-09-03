@@ -24,7 +24,7 @@ defensible disagreements per run are expected.
 The test file was written on gut feel, guessing how a harsh journalist would
 react. Some of those guesses were wrong. When we fix the prompt, a lower score
 can mean the prompt improved while a bad test label finally showed up as a
-failure. That is why the method (see `EVALS_PLAN.md`) is: correct the test
+failure. That is why the method (see `docs/EVALS_PLAN.md`) is: correct the test
 labels first, freeze them, then change the prompt one step at a time.
 
 ---
@@ -121,7 +121,7 @@ action to agree. That's worth having regardless of where the test numbers land.
 
 **Note on order:** ideally the fixture fixes from the triage above come first,
 so the rubric's effect can be measured against a clean baseline. That
-re-baseline run is the next step (Phase 2 in `EVALS_PLAN.md`).
+re-baseline run is the next step (Phase 2 in `docs/EVALS_PLAN.md`).
 
 ### 2. Fixtures — applied the 4 triage fixes
 

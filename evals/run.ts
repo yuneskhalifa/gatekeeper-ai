@@ -1,10 +1,13 @@
-// Phase 1 eval runner — deterministic core.
+// Eval runner.
 //
-//   npx tsx --env-file=.env.local evals/run.ts
+//   npm run eval           (tsx --env-file=.env.local evals/run.ts)
 //
-// Runs one journalist turn per scenario and grades action correctness and
-// score bounds. Prints a table, writes evals/REPORT.md, exits non-zero if
-// action accuracy < 80% or any score is out of bounds.
+// For each scenario, runs one journalist turn and grades:
+//   1. action correctness — did it pick an expected action?   (pass/fail)
+//   2. score bounds       — is the score inside the window?    (pass/fail)
+//
+// Prints a table, writes evals/REPORT.md. Exits non-zero if action accuracy
+// or score-in-bounds drops below 80%.
 
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -83,13 +86,17 @@ function pad(s: string, n: number): string {
 
 function table(rows: Row[]): string {
   const mark = (ok: boolean) => (ok ? "ok " : "BAD");
-  const header = `${pad("#", 3)} ${pad("id", 27)} ${pad("action", 15)} ${pad(
-    "",
-    3
-  )} ${pad("expected", 24)} ${pad("score", 5)} ${pad("", 3)} ${pad(
-    "window",
-    8
-  )} result`;
+  const header = [
+    pad("#", 3),
+    pad("id", 27),
+    pad("action", 15),
+    pad("", 3),
+    pad("expected", 24),
+    pad("score", 5),
+    pad("", 3),
+    pad("window", 8),
+    "result",
+  ].join(" ");
   const lines = rows.map((r, i) => {
     if (r.error) {
       return `${pad(String(i + 1), 3)} ${pad(r.id, 27)} FAIL — ${r.error}`;
@@ -122,17 +129,19 @@ async function main() {
   const actionHits = rows.filter((r) => r.actionOk).length;
   const scoreHits = rows.filter((r) => r.scoreOk).length;
   const actionAccuracy = actionHits / rows.length;
+  const scoreAccuracy = scoreHits / rows.length;
 
-  const summary = [
-    "",
-    table(rows),
-    "",
-    `Action accuracy:  ${actionHits}/${rows.length}  (${Math.round(
-      actionAccuracy * 100
-    )}%)`,
-    `Score in-bounds:  ${scoreHits}/${rows.length}`,
-  ].join("\n");
-  console.log(summary);
+  console.log(
+    [
+      "",
+      table(rows),
+      "",
+      `Action accuracy:  ${actionHits}/${rows.length}  (${Math.round(
+        actionAccuracy * 100
+      )}%)`,
+      `Score in-bounds:  ${scoreHits}/${rows.length}`,
+    ].join("\n")
+  );
 
   const report = [
     "# Eval Report",
@@ -151,7 +160,6 @@ async function main() {
   ].join("\n");
   writeFileSync(join(process.cwd(), "evals/REPORT.md"), report);
 
-  const scoreAccuracy = scoreHits / rows.length;
   const pass =
     actionAccuracy >= ACTION_THRESHOLD && scoreAccuracy >= SCORE_THRESHOLD;
   if (!pass) {

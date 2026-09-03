@@ -18,9 +18,6 @@ For each scenario we run one journalist turn and grade:
    expected action for that scenario. Main metric.
 2. **Score bounds** — the `score_pitch` score falls inside the
    `[minScore, maxScore]` window for the scenario.
-3. **Persona fidelity** (Phase 3, LLM-as-judge) — a second Claude call rates
-   the journalist's critique/question text 1–5 for: specific not generic, in
-   character, no corporate cheerleading. Pass = ≥ 3. Advisory only.
 
 **Action accuracy** = how many of the 10 actions matched.
 **Score in bounds** = how many of the 10 scores landed in range.
@@ -55,7 +52,7 @@ we change one thing at a time and always compare against a trustworthy baseline.
 Every run gets an entry in `evals/FINDINGS.md`: what changed since the last
 run, the result, and what we learned.
 
-## Three phases
+## Two phases
 
 Each phase is roughly one commit and leaves the suite runnable.
 
@@ -77,18 +74,6 @@ Each phase is roughly one commit and leaves the suite runnable.
   narrower definition of a "blocking unknown".
 - Run 3 passes: 9/10 action, 9/10 score. #7 left as a documented persona
   judgment call. Full history in `FINDINGS.md`.
-
-### Phase 3 — persona judge + writeup
-
-- `evals/judge.ts` — one Claude call that rates the journalist's action text
-  1–5 (specific / in character / no cheerleading).
-- `run.ts` adds the persona column; pass = ≥ 3, advisory (doesn't change the
-  exit code).
-- `evals/REPORT.md` gets a short header (date, model, aggregate scores).
-- One short paragraph in the README / video notes: what the suite checks and
-  how the method turned prompt changes into measurable results.
-- Done when: the table has a persona score per row and three consecutive runs
-  are green.
 
 ## Scenarios
 
@@ -115,7 +100,6 @@ These windows and labels are pre-triage guesses. Phase 2 corrects them.
 evals/
   fixtures.ts        # the 10 scenarios
   run.ts             # the runner
-  judge.ts           # Phase 3 — LLM-as-judge for persona fidelity
   FINDINGS.md        # committed log — one entry per run
   REPORT.md          # generated each run, git-ignored
 ```
@@ -127,12 +111,15 @@ npm run eval          # tsx --env-file=.env.local evals/run.ts
 ```
 
 Run manually with `ANTHROPIC_API_KEY` in `.env.local`. Costs ~20 Claude calls
-per run (10 turns × 2 calls), plus 10 judge calls once Phase 3 lands — a few
-cents.
+per run (10 turns × 2 calls) — a few cents.
 
 ## Out of scope (deliberately)
 
 - CI integration — it's a demo app; run it by hand before merging prompt changes.
+- LLM-as-judge scoring of the journalist's writing — the action and score
+  checks already catch the failures that matter for a demo; a judge would only
+  earn its place as a regression tripwire once the prompt is being changed
+  often.
 - Evals for `/api/compile-email` and `/api/vet-answers` — same pattern could be
   added later.
 - Multi-turn conversations — every scenario is a single opening turn.

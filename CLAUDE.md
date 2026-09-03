@@ -8,9 +8,11 @@ cynical journalist persona who reads it and picks one action
 (reject / request data / ask a question / book the meeting) via tool
 use, with a live 0–100 viability score.
 
-Full product spec, feature map, and phased build plan: **`PROJECT_PLAN.md`**.
+Full product spec, feature map, and phased build plan: **`docs/PROJECT_PLAN.md`**.
 Read it before starting a new phase — it defines what each phase is
-and which course/Claude API feature it demonstrates.
+and which course/Claude API feature it demonstrates. Other docs live in
+`docs/` too: `docs/TESTING.md` (manual test script), `docs/EVALS_PLAN.md`
+(persona eval method; results in `evals/FINDINGS.md`).
 
 ## Stack
 
@@ -66,7 +68,7 @@ default (`dark` class on `<html>` in `app/layout.tsx`), no toggle.
 ## Conventions
 
 - Small, working commits — trunk-based, one commit per phase checkbox
-  in `PROJECT_PLAN.md`. **The user makes the commits, not Claude Code**
+  in `docs/PROJECT_PLAN.md`. **The user makes the commits, not Claude Code**
   — implement and verify a phase, then hand it back rather than
   running `git commit` yourself.
 - Anthropic API calls live in `lib/anthropic/` only — don't call the

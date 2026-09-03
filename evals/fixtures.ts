@@ -1,5 +1,5 @@
 // The 10 hand-written pitch scenarios the eval suite grades against.
-// See EVALS_PLAN.md for the rationale behind each expected action and window.
+// See docs/EVALS_PLAN.md for the rationale behind each expected action and window.
 
 export type Action =
   | "reject_pitch"
