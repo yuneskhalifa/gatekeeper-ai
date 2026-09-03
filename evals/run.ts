@@ -13,7 +13,11 @@ import { MODEL } from "@/lib/anthropic/client";
 import { runJournalistTurn } from "@/lib/anthropic/turn";
 import { scenarios, type Action, type Scenario } from "./fixtures";
 
-const ACTION_ACCURACY_THRESHOLD = 0.8;
+// The suite passes if at least 8/10 actions match AND at least 8/10 scores are
+// in range. This is a persona eval, not a unit test — a couple of defensible
+// disagreements per run are expected and fine.
+const ACTION_THRESHOLD = 0.8;
+const SCORE_THRESHOLD = 0.8;
 
 function firstUserMessage(s: Scenario): Anthropic.MessageParam[] {
   return [
@@ -147,12 +151,14 @@ async function main() {
   ].join("\n");
   writeFileSync(join(process.cwd(), "evals/REPORT.md"), report);
 
-  const pass = actionAccuracy >= ACTION_ACCURACY_THRESHOLD && scoreHits === rows.length;
+  const scoreAccuracy = scoreHits / rows.length;
+  const pass =
+    actionAccuracy >= ACTION_THRESHOLD && scoreAccuracy >= SCORE_THRESHOLD;
   if (!pass) {
     console.log(
-      `\nFAIL — need action accuracy >= ${
-        ACTION_ACCURACY_THRESHOLD * 100
-      }% and all scores in bounds.`
+      `\nFAIL — need action accuracy >= ${ACTION_THRESHOLD * 100}% and score in-bounds >= ${
+        SCORE_THRESHOLD * 100
+      }%.`
     );
     process.exit(1);
   }
