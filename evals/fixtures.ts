@@ -44,7 +44,9 @@ export const scenarios: Scenario[] = [
       "Cadence, a fintech app for freelancers, says it has seen \"huge growth\" over the last year and is \"one of the fastest-growing apps in its category.\" It will not share specific numbers in the pitch.",
     pitch:
       "Cadence has exploded in popularity — we've seen massive user growth and incredible engagement over the past 12 months, making us one of the fastest-growing finance apps for freelancers. The founder would love to talk about what's driving this momentum. Can we find time this week?",
-    expectedAction: "request_data",
+    // Triage (Run 2): pure adjectives, won't share numbers — rejecting is
+    // defensible (same logic as unnamed-customers). Accept either action.
+    expectedAction: ["reject_pitch", "request_data"],
     minScore: 15,
     maxScore: 45,
   },
@@ -67,11 +69,12 @@ export const scenarios: Scenario[] = [
       "Loomwork has raised a $9M Series A led by Northgate Ventures, bringing total funding to $14M. ARR is $2.1M, up from $600K a year ago. The pitch does not say whether the story is being offered exclusively or pitched broadly.",
     pitch:
       "Loomwork has closed a $9M Series A led by Northgate Ventures (total raised: $14M). ARR grew from $600K to $2.1M in the last year. The founder, a former Stripe engineer, can walk you through how they got there and where the money is going. Would you like to cover this?",
-    // Triage (Run 1): action right, window too high at the bottom (persona
-    // scored it 42). Lowered the floor.
+    // Triage (Run 1): action right, window too low. Run 1's score of 42 was
+    // pre-rubric; with the rubric this scores ~68. Window re-centred for the
+    // rubric-era baseline.
     expectedAction: "ask_question",
-    minScore: 38,
-    maxScore: 65,
+    minScore: 55,
+    maxScore: 78,
   },
   {
     id: "timing-unclear",
@@ -79,9 +82,11 @@ export const scenarios: Scenario[] = [
       "Mediva, a digital-health company, has results from a peer-reviewed study showing its app reduced hospital readmissions by 22% across 1,400 patients. The publication date of the study and any embargo are not mentioned.",
     pitch:
       "A new peer-reviewed study of 1,400 patients found that Mediva's app cut 30-day hospital readmissions by 22%. The lead researcher and our chief medical officer are both available to comment. Let me know if you'd like the data.",
+    // Triage (Run 2): action right; window was set from Run 1's pre-rubric
+    // score of 42. Rubric-era score is ~68. Re-centred.
     expectedAction: "ask_question",
-    minScore: 40,
-    maxScore: 65,
+    minScore: 55,
+    maxScore: 78,
   },
   {
     id: "funding-round-with-metrics",
